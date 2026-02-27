@@ -1,0 +1,577 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Token Usage vs Performance – Bullshit Benchmark</title>
+  <style>
+    :root {
+      --bg: #f7f4ec;
+      --panel: #fffefb;
+      --ink: #1f2623;
+      --muted: #5f6f6a;
+      --line: #d6ddd8;
+      --teal: #0f766e;
+      --teal-soft: #d8f3ef;
+      --green: #1f9d55;
+      --amber: #d88710;
+      --red: #c13d36;
+      --deep-red: #8a1f1a;
+      --error: #4a5350;
+      --shadow: 0 10px 30px rgba(20, 35, 30, 0.08);
+      --radius: 14px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0; padding: 0; min-height: 100%;
+      color: var(--ink);
+      background: radial-gradient(1200px 700px at 100% -50%, #d9efe9 0%, transparent 70%),
+        radial-gradient(1000px 600px at -10% 10%, #f6ecd8 0%, transparent 70%),
+        var(--bg);
+      font-family: "Avenir Next", "Trebuchet MS", "Segoe UI", sans-serif;
+    }
+
+    .page {
+      width: min(1600px, 96vw);
+      margin: 28px auto 48px;
+      display: grid;
+      gap: 18px;
+      animation: fade-up 500ms ease-out both;
+    }
+
+    @keyframes fade-up {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .hero {
+      background: linear-gradient(132deg, #113630 0%, #1b5f55 60%, #1d7268 100%);
+      color: #f2faf8;
+      border-radius: 18px;
+      padding: 22px 24px;
+      box-shadow: var(--shadow);
+    }
+    .hero h1 {
+      margin: 0;
+      font-family: "Rockwell", "Georgia", serif;
+      letter-spacing: 0.2px;
+      font-size: clamp(1.5rem, 2.5vw, 2.2rem);
+    }
+    .hero-subtitle {
+      margin: 8px 0 0;
+      color: #cde9e3;
+      max-width: 920px;
+    }
+    .hero-links {
+      margin-top: 10px;
+      display: flex;
+      gap: 8px;
+    }
+    .hero-link {
+      border: 1px solid rgba(255,255,255,0.5);
+      color: #e6f4f1;
+      background: rgba(255,255,255,0.06);
+      border-radius: 10px;
+      padding: 7px 11px;
+      font-size: 0.84rem;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+    }
+    .hero-link:hover { background: rgba(255,255,255,0.14); }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 16px;
+      animation: fade-up 550ms ease both;
+    }
+    .panel h2 {
+      margin: 0 0 12px;
+      font-size: 1.15rem;
+      font-family: "Rockwell", "Georgia", serif;
+    }
+    .subtle { margin: 0; color: var(--muted); font-size: 0.92rem; }
+
+    /* KPIs */
+    .kpis {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    .kpi {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px;
+      background: #fff;
+    }
+    .kpi .label { font-size: 0.79rem; color: var(--muted); margin-bottom: 4px; }
+    .kpi .value { font-size: 1.35rem; font-weight: 700; letter-spacing: 0.1px; }
+    .kpi .hint { font-size: 0.77rem; color: #667a74; margin-top: 2px; }
+    .kpi.green .value { color: var(--green); }
+    .kpi.amber .value { color: var(--amber); }
+    .kpi.teal .value { color: var(--teal); }
+
+    /* Org chips */
+    .org-key-wrap {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 10px;
+    }
+    .org-key { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .org-chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      border: 1px solid #d2ddd8; border-radius: 999px;
+      background: #fff; padding: 3px 8px;
+      font-size: 0.74rem; color: #30433d; line-height: 1.2; white-space: nowrap;
+    }
+    .org-chip.filter-chip {
+      appearance: none; border-radius: 8px;
+      border: 1px solid #c8d7d0; background: #f4faf7;
+      padding: 4px 9px 4px 8px; font-size: 0.78rem;
+      cursor: pointer; transition: background 120ms, border-color 120ms, transform 100ms;
+    }
+    .org-chip.filter-chip:hover {
+      border-color: #98b8ad; background: #edf7f2; transform: translateY(-1px);
+    }
+    .org-chip.filter-chip.is-active {
+      border-color: #5f8f7e; background: #e4f3eb; color: #223831; font-weight: 700;
+    }
+    .org-chip.filter-chip.is-muted { opacity: 0.46; }
+    .org-count { color: #60736c; font-variant-numeric: tabular-nums; }
+    .org-dot {
+      width: 9px; height: 9px; border-radius: 50%; display: inline-block;
+      box-shadow: inset 0 0 0 1px rgba(0,0,0,0.14);
+    }
+
+    /* Model toggle grid */
+    .model-toggle-grid {
+      margin-top: 8px;
+      border: 1px solid #d2dbd6; border-radius: 10px; background: #fff; padding: 8px;
+      max-height: 220px; overflow: auto;
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 6px;
+    }
+    .model-toggle-item {
+      display: flex; align-items: center; gap: 8px;
+      border: 1px solid #d4dfda; border-radius: 8px; background: #f8fbfa;
+      padding: 6px 8px; font-size: 0.78rem; color: #25453b;
+    }
+    .model-toggle-item input[type="checkbox"] {
+      width: 15px; height: 15px; margin: 0; accent-color: #1d7268; cursor: pointer; flex: 0 0 auto;
+    }
+    .model-toggle-item.hidden { background: #fbf2f1; color: #7a322c; border-color: #e2c8c4; }
+
+    /* Buttons */
+    button {
+      border: 1px solid #25584f; background: #1d7268; color: #fff;
+      border-radius: 10px; padding: 8px 12px; font-size: 0.86rem;
+      cursor: pointer; transition: transform 140ms ease, box-shadow 140ms ease, background 140ms ease;
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    button:hover { transform: translateY(-1px); box-shadow: 0 8px 16px rgba(27,82,75,0.2); background: #1a665e; }
+    button.alt { background: #fff; border-color: #bcc9c2; color: #30403a; box-shadow: none; }
+    button.alt:hover { background: #f4f8f6; }
+
+    .button-row { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+    /* Charts */
+    .chart-block {
+      border: 1px solid var(--line); border-radius: 12px; padding: 10px; background: #fff;
+    }
+    .chart-block h3 {
+      margin: 0 0 8px; font-size: 1rem; font-family: "Rockwell", "Georgia", serif;
+    }
+    .canvas-wrap {
+      position: relative; width: 100%;
+    }
+    .canvas-wrap canvas { width: 100%; display: block; }
+    .chart-tooltip {
+      display: none; position: absolute; pointer-events: none;
+      background: rgba(30,50,45,0.92); color: #f0f7f5; padding: 6px 10px;
+      border-radius: 8px; font-size: 0.78rem; line-height: 1.4;
+      white-space: nowrap; z-index: 10;
+    }
+
+
+    .chart-stats { margin-top: 60px; }
+
+    .grid-2 { display: grid; gap: 14px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+    @media (max-width: 900px) {
+      .grid-2 { grid-template-columns: 1fr; }
+      .kpis { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Hero -->
+  <header class="hero">
+    <h1>Token Usage vs Performance</h1>
+    <p class="hero-subtitle">
+      Do models that generate more tokens perform better at detecting nonsense?
+      This analysis correlates token counts (completion, reasoning) with consensus scores across all benchmark samples.
+    </p>
+    <div class="hero-links">
+      <a class="hero-link" href="index.html">Main Explorer</a>
+    </div>
+  </header>
+
+  <!-- Filters -->
+  <section class="panel">
+    <h2>Filters</h2>
+    <div class="org-key-wrap">
+      <div class="org-key" id="orgChips"></div>
+    </div>
+    <div class="button-row">
+      <button onclick="selectAll()">Select All</button>
+      <button class="alt" onclick="deselectAll()">Deselect All</button>
+    </div>
+    <div class="model-toggle-grid" id="modelToggles"></div>
+  </section>
+
+  <!-- Scatter: Completion Tokens vs Score -->
+  <div class="grid-2">
+    <section class="panel">
+      <div class="chart-block">
+        <h3>Avg Completion Tokens vs Avg Score</h3>
+        <p class="subtle">Each dot = one model, colored by org</p>
+        <div class="canvas-wrap">
+          <canvas id="scatterComp" height="400"></canvas>
+          <div class="chart-tooltip" id="tipComp"></div>
+        </div>
+        <div class="kpis chart-stats" id="statsComp"></div>
+      </div>
+    </section>
+
+    <!-- Scatter: Reasoning Tokens vs Score -->
+    <section class="panel">
+      <div class="chart-block">
+        <h3>Avg Reasoning Tokens vs Avg Score</h3>
+        <p class="subtle">Only models with reasoning tokens</p>
+        <div class="canvas-wrap">
+          <canvas id="scatterReas" height="400"></canvas>
+          <div class="chart-tooltip" id="tipReas"></div>
+        </div>
+        <div class="kpis chart-stats" id="statsReas"></div>
+      </div>
+    </section>
+  </div>
+
+
+</div>
+
+<script>
+const ORG_COLOR_OVERRIDES = {
+  anthropic: "#f97316", openai: "#111827", google: "#1a73e8",
+  "x-ai": "#6d28d9", mistralai: "#ec4899", deepseek: "#06b6d4",
+  bytedance: "#0ea5e9", "bytedance-seed": "#0ea5e9", xiaomi: "#ff6900",
+  qwen: "#7c3aed", moonshotai: "#0284c7", minimax: "#14b8a6",
+  baidu: "#1d4ed8", "prime-intellect": "#64748b", "z-ai": "#0f766e",
+};
+const ORG_NAME_OVERRIDES = {
+  anthropic: "Anthropic", openai: "OpenAI", google: "Google",
+  "x-ai": "xAI", xai: "xAI", mistralai: "Mistral", deepseek: "DeepSeek",
+  bytedance: "ByteDance", "bytedance-seed": "ByteDance", xiaomi: "Xiaomi",
+  qwen: "Qwen", moonshotai: "Moonshot AI", minimax: "MiniMax",
+  baidu: "Baidu", "prime-intellect": "Prime Intellect", "z-ai": "Z AI",
+};
+
+function hashString(s) { let h = 0; for (let i = 0; i < s.length; i++) { h = ((h << 5) - h + s.charCodeAt(i)) | 0; } return Math.abs(h); }
+function orgColor(org) { const n = (org || "").toLowerCase().replace(/[^a-z0-9-]/g, ""); return ORG_COLOR_OVERRIDES[n] || `hsl(${hashString(n) % 360} 60% 42%)`; }
+function displayOrg(org) { const n = (org || "").toLowerCase().replace(/[^a-z0-9-]/g, ""); return ORG_NAME_OVERRIDES[n] || org; }
+function esc(s) { const d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
+
+let DATA = null;
+let state = {
+  activeOrg: "all",
+  hiddenModels: new Set(),
+};
+
+function defaultPathPrefix() {
+  const p = window.location.pathname || "";
+  return p.includes("/viewer/") ? "../" : "";
+}
+
+async function init() {
+  // Try fetch first (works when served via HTTP), fall back to embedded data for file:// protocol
+  try {
+    const resp = await fetch(defaultPathPrefix() + "data/latest/token_analysis.json");
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    DATA = await resp.json();
+  } catch (e) {
+    if (window.__EMBEDDED_DATA__) {
+      DATA = window.__EMBEDDED_DATA__;
+    } else {
+      document.querySelector(".page").innerHTML = `<div class="panel"><h2>Error loading data</h2><p class="subtle">${esc(String(e))}</p><p class="subtle">Run <code>python3 scripts/token_analysis.py</code> to generate the data, then <code>python3 scripts/embed_token_data.py</code> to embed it for file:// usage, or serve via HTTP.</p></div>`;
+      return;
+    }
+  }
+  renderAll();
+}
+
+function visibleModels() {
+  return DATA.per_model.filter(m => {
+    if (state.activeOrg !== "all" && m.model_org !== state.activeOrg) return false;
+    return !state.hiddenModels.has(m.model_row);
+  });
+}
+
+function renderAll() {
+  renderOrgChips();
+  renderModelToggles();
+  renderScatter("scatterComp", "tipComp", "mean_completion_tokens", "avg_score", "Avg Completion Tokens", "Avg Score");
+  renderScatter("scatterReas", "tipReas", "mean_reasoning_tokens", "avg_score", "Avg Reasoning Tokens", "Avg Score", true);
+  renderChartStats();
+}
+
+function renderChartStats() {
+  const corrs = DATA.correlations;
+
+  // Completion tokens stats
+  const comp = corrs.find(c => c.label.includes("mean_completion") && c.label.includes("avg_score"));
+  const vis = visibleModels();
+  const compKpis = [
+    { label: "Pearson r", value: comp ? fmt(comp.pearson_r) : "N/A", hint: comp ? `p = ${fmtP(comp.pearson_p)}` : "", cls: "teal" },
+    { label: "Spearman rho", value: comp ? fmt(comp.spearman_r) : "N/A", hint: comp ? `p = ${fmtP(comp.spearman_p)}` : "", cls: "teal" },
+    { label: "Models", value: vis.length, hint: `of ${DATA.per_model.length}`, cls: "" },
+  ];
+  document.getElementById("statsComp").innerHTML = renderKpiRow(compKpis);
+
+  // Reasoning tokens stats
+  const reas = corrs.find(c => c.label.includes("mean_reasoning") && c.label.includes("avg_score"));
+  const reasModels = vis.filter(m => m.mean_reasoning_tokens > 0);
+  const reasKpis = [
+    { label: "Pearson r", value: reas ? fmt(reas.pearson_r) : "N/A", hint: reas ? `p = ${fmtP(reas.pearson_p)}` : "", cls: "teal" },
+    { label: "Spearman rho", value: reas ? fmt(reas.spearman_r) : "N/A", hint: reas ? `p = ${fmtP(reas.spearman_p)}` : "", cls: "teal" },
+    { label: "Models", value: reasModels.length, hint: "with reasoning tokens", cls: "" },
+  ];
+  document.getElementById("statsReas").innerHTML = renderKpiRow(reasKpis);
+}
+
+function renderKpiRow(kpis) {
+  return kpis.map(k =>
+    `<div class="kpi ${k.cls}"><div class="label">${esc(k.label)}</div><div class="value">${esc(String(k.value))}</div><div class="hint">${esc(k.hint)}</div></div>`
+  ).join("");
+}
+
+function fmt(v) { return v == null ? "N/A" : v.toFixed(3); }
+function fmtP(v) { return v == null ? "N/A" : v < 0.001 ? v.toExponential(2) : v.toFixed(4); }
+
+function renderOrgChips() {
+  const counts = {};
+  DATA.per_model.forEach(m => { counts[m.model_org] = (counts[m.model_org] || 0) + 1; });
+  const orgs = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
+
+  document.getElementById("orgChips").innerHTML = orgs.map(org => {
+    const swatch = orgColor(org);
+    const isActive = state.activeOrg === org;
+    const isMuted = state.activeOrg !== "all" && !isActive;
+    return `<button type="button" class="org-chip filter-chip${isActive ? " is-active" : ""}${isMuted ? " is-muted" : ""}" data-org="${esc(org)}">
+      <span class="org-dot" style="background:${esc(swatch)};"></span>
+      <span>${esc(displayOrg(org))}</span>
+      <span class="org-count">${counts[org]}</span>
+    </button>`;
+  }).join("");
+
+  document.querySelectorAll("[data-org]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const org = btn.getAttribute("data-org");
+      state.activeOrg = state.activeOrg === org ? "all" : org;
+      renderAll();
+    });
+  });
+}
+
+function renderModelToggles() {
+  const models = DATA.per_model.filter(m =>
+    state.activeOrg === "all" || m.model_org === state.activeOrg
+  );
+  document.getElementById("modelToggles").innerHTML = models.map(m => {
+    const hidden = state.hiddenModels.has(m.model_row);
+    return `<label class="model-toggle-item${hidden ? " hidden" : ""}">
+      <input type="checkbox" ${hidden ? "" : "checked"} data-model="${esc(m.model_row)}">
+      <span class="org-dot" style="background:${esc(orgColor(m.model_org))};"></span>
+      <span>${esc(m.model_row)}</span>
+    </label>`;
+  }).join("");
+
+  document.querySelectorAll("#modelToggles input[type=checkbox]").forEach(cb => {
+    cb.addEventListener("change", () => {
+      const model = cb.getAttribute("data-model");
+      if (cb.checked) state.hiddenModels.delete(model);
+      else state.hiddenModels.add(model);
+      renderAll();
+    });
+  });
+}
+
+function selectAll() { state.hiddenModels.clear(); renderAll(); }
+function deselectAll() {
+  DATA.per_model.forEach(m => state.hiddenModels.add(m.model_row));
+  renderAll();
+}
+
+// --- Scatter plot (Canvas 2D) ---
+function renderScatter(canvasId, tipId, xKey, yKey, xLabel, yLabel, reasoningOnly) {
+  const canvas = document.getElementById(canvasId);
+  const tip = document.getElementById(tipId);
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.parentElement.getBoundingClientRect();
+  const W = rect.width;
+  const H = 400;
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width = W + "px";
+  canvas.style.height = H + "px";
+
+  const ctx = canvas.getContext("2d");
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, W, H);
+
+  const pad = { top: 20, right: 20, bottom: 44, left: 60 };
+  const plotW = W - pad.left - pad.right;
+  const plotH = H - pad.top - pad.bottom;
+
+  let models = visibleModels();
+  if (reasoningOnly) models = models.filter(m => m.mean_reasoning_tokens > 0);
+  if (models.length === 0) {
+    ctx.fillStyle = "#5f6f6a";
+    ctx.font = "14px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("No data to display", W / 2, H / 2);
+    return;
+  }
+
+  const xs = models.map(m => m[xKey]);
+  const ys = models.map(m => m[yKey]);
+  const xMin = Math.min(...xs); const xMax = Math.max(...xs);
+  const yMin = Math.min(...ys); const yMax = Math.max(...ys);
+  const xRange = xMax - xMin || 1;
+  const yRange = yMax - yMin || 1;
+  const xPad = xRange * 0.05;
+  const yPad = yRange * 0.05;
+
+  function toX(v) { return pad.left + ((v - (xMin - xPad)) / (xRange + 2 * xPad)) * plotW; }
+  function toY(v) { return pad.top + plotH - ((v - (yMin - yPad)) / (yRange + 2 * yPad)) * plotH; }
+
+  // Grid lines
+  ctx.strokeStyle = "#e8ecea";
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 5; i++) {
+    const y = pad.top + (plotH / 5) * i;
+    ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(pad.left + plotW, y); ctx.stroke();
+    const x = pad.left + (plotW / 5) * i;
+    ctx.beginPath(); ctx.moveTo(x, pad.top); ctx.lineTo(x, pad.top + plotH); ctx.stroke();
+  }
+
+  // Axis labels
+  ctx.fillStyle = "#5f6f6a";
+  ctx.font = "11px sans-serif";
+  ctx.textAlign = "center";
+  for (let i = 0; i <= 5; i++) {
+    const v = (xMin - xPad) + (xRange + 2 * xPad) * (i / 5);
+    ctx.fillText(Math.round(v).toLocaleString(), pad.left + (plotW / 5) * i, H - pad.bottom + 18);
+  }
+  ctx.textAlign = "right";
+  for (let i = 0; i <= 5; i++) {
+    const v = (yMin - yPad) + (yRange + 2 * yPad) * (1 - i / 5);
+    ctx.fillText(v.toFixed(2), pad.left - 6, pad.top + (plotH / 5) * i + 4);
+  }
+
+  // Axis titles
+  ctx.fillStyle = "#394440";
+  ctx.font = "12px sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText(xLabel, pad.left + plotW / 2, H - 4);
+  ctx.save();
+  ctx.translate(14, pad.top + plotH / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillText(yLabel, 0, 0);
+  ctx.restore();
+
+  // Regression line
+  if (models.length >= 3) {
+    const n = xs.length;
+    const mx = xs.reduce((a, b) => a + b, 0) / n;
+    const my = ys.reduce((a, b) => a + b, 0) / n;
+    const num = xs.reduce((s, x, i) => s + (x - mx) * (ys[i] - my), 0);
+    const den = xs.reduce((s, x) => s + (x - mx) ** 2, 0);
+    if (den > 0) {
+      const slope = num / den;
+      const intercept = my - slope * mx;
+      ctx.strokeStyle = "rgba(15,118,110,0.3)";
+      ctx.lineWidth = 2;
+      ctx.setLineDash([6, 4]);
+      const rx0 = xMin - xPad; const rx1 = xMax + xPad;
+      ctx.beginPath();
+      ctx.moveTo(toX(rx0), toY(intercept + slope * rx0));
+      ctx.lineTo(toX(rx1), toY(intercept + slope * rx1));
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }
+
+  // Points
+  const dots = [];
+  models.forEach((m, i) => {
+    const cx = toX(xs[i]);
+    const cy = toY(ys[i]);
+    const color = orgColor(m.model_org);
+    ctx.beginPath();
+    ctx.arc(cx, cy, 6, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.globalAlpha = 0.85;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = "rgba(0,0,0,0.15)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    dots.push({ cx, cy, m, x: xs[i], y: ys[i] });
+  });
+
+  // Tooltip
+  canvas.onmousemove = (e) => {
+    const r = canvas.getBoundingClientRect();
+    const mx = e.clientX - r.left;
+    const my = e.clientY - r.top;
+    let hit = null;
+    for (const d of dots) {
+      if (Math.hypot(d.cx - mx, d.cy - my) < 10) { hit = d; break; }
+    }
+    if (hit) {
+      tip.style.display = "block";
+      tip.innerHTML = `<strong>${esc(hit.m.model_row)}</strong><br>${xLabel}: ${Math.round(hit.x).toLocaleString()}<br>${yLabel}: ${hit.y.toFixed(3)}`;
+      let tx = hit.cx + 12; let ty = hit.cy - 10;
+      if (tx + 200 > W) tx = hit.cx - 200;
+      if (ty < 0) ty = hit.cy + 12;
+      tip.style.left = tx + "px";
+      tip.style.top = ty + "px";
+    } else {
+      tip.style.display = "none";
+    }
+  };
+  canvas.onmouseleave = () => { tip.style.display = "none"; };
+}
+
+
+// Resize handler
+let resizeTimer;
+window.addEventListener("resize", () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    if (DATA) renderAll();
+  }, 200);
+});
+
+init();
+</script>
+
+<!-- EMBEDDED_DATA_START -->
+<script>window.__EMBEDDED_DATA__ = {"generated":"token_analysis.py","total_samples":4062,"total_models":74,"per_model":[{"model_row":"claude-sonnet-4.6@reasoning=high","model_org":"anthropic","model_name":"claude-sonnet-4.6","reasoning_level":"high","sample_count":55,"mean_completion_tokens":731.2,"median_completion_tokens":644,"mean_reasoning_tokens":305.6,"median_reasoning_tokens":266,"mean_total_tokens":789.2,"avg_score":1.897,"green_rate":0.8727,"red_rate":0.0},{"model_row":"claude-sonnet-4.6@reasoning=none","model_org":"anthropic","model_name":"claude-sonnet-4.6","reasoning_level":"none","sample_count":55,"mean_completion_tokens":357.8,"median_completion_tokens":321,"mean_reasoning_tokens":0,"median_reasoning_tokens":0,"mean_total_tokens":398.8,"avg_score":1.897,"green_rate":0.8545,"red_rate":0.0182},{"model_row":"claude-opus-4.5@reasoning=high","model_org":"anthropic","model_name":"claude-opus-4.5","reasoning_level":"high","sample_count":55,"mean_completion_tokens":679.0,"median_completion_tokens":654,"mean_reasoning_tokens":487.9,"median_reasoning_tokens":451,"mean_total_tokens":749.0,"avg_score":1.8849,"green_rate":0.8545,"red_rate":0.0},{"model_row":"claude-opus-4.6@reasoning=none","model_org":"anthropic","model_name":"claude-opus-4.6","reasoning_level":"none","sample_count":55,"mean_completion_tokens":387.6,"median_completion_tokens":341,"mean_reasoning_tokens":0,"median_reasoning_tokens":0,"mean_total_tokens":428.6,"avg_score":1.8788,"green_rate":0.8545,"red_rate":0.0182},{"model_row":"claude-opus-4.6@reasoning=high","model_org":"anthropic","model_name":"claude-opus-4.6","reasoning_level":"high","sample_count":55,"mean_completion_tokens":631.9,"median_completion_tokens":561,"mean_reasoning_tokens":259.8,"median_reasoning_tokens":235,"mean_total_tokens":689.9,"avg_score":1.8545,"green_rate":0.8545,"red_rate":0.0364},{"model_row":"claude-haiku-4.5@reasoning=high","model_org":"anthropic","model_name":"claude-haiku-4.5","reasoning_level":"high","sample_count":55,"mean_completion_tokens":632.7,"median_completion_tokens":630,"mean_reasoning_tokens":399.7,"median_reasoning_tokens":387,"mean_total_tokens":702.7,"avg_score":1.7879,"green_rate":0.6727,"red_rate":0.0364},{"model_row":"claude-opus-4.5@reasoning=none","model_org":"anthropic","model_name":"claude-opus-4.5","reasoning_level":"none","sample_count":55,"mean_completion_tokens":282.8,"median_completion_tokens":288,"mean_reasoning_tokens":0,"median_reasoning_tokens":0,"mean_total_tokens":323.8,"avg_score":1.7697,"green_rate":0.7091,"red_rate":0.0182},{"model_row":"claude-haiku-4.5@reasoning=none","model_org":"anthropic","model_name":"claude-haiku-4.5","reasoning_level":"none","sample_count":55,"mean_completion_tokens":300.0,"median_completion_tokens":288,"mean_reasoning_tokens":0,"median_reasoning_tokens":0,"mean_total_tokens":341.0,"avg_score":1.7333,"green_rate":0.6909,"red_rate":0.0364},{"model_row":"qwen3.5-397b-a17b@reasoning=none","model_org":"qwen","model_name":"qwen3.5-397b-a17b","reasoning_level":"none","sample_count":55,"mean_completion_tokens":718.7,"median_completion_tokens":690,"mean_reasoning_tokens":0,"median_reasoning_tokens":0,"mean_total_tokens":762.1,"avg_score":1.497,"green_rate":0.5455,"red_rate":0.0727},{"model_row":"claude-sonnet-4.5@reasoning=high","model_org":"anthropic","model_name":"claude-sonnet-4.5","reasoning_level":"high","sample_count":55,"mean_completion_tokens":548.6,"median_completion_tokens":533,"mean_reasoning_tokens":308.3,"median_reasoning_tokens":291,"mean_total_tokens":618.6,"avg_score":1.4606,"green_rate":0.5455,"red_rate":0.1091},{"model_row":"qwen3.5-397b-a17b@reasoning=high","model_org":"qwen","model_name":"qwen3.5-397b-a17b","reasoning_level":"high","sample_count":55,"mean_completion_tokens":2015.7,"median_completion_tokens":2007,"mean_reasoning_tokens":1283.5,"median_reasoning_tokens":1244,"mean_total_tokens":2057.2,"avg_score":1.3455,"green_rate":0.3636,"red_rate":0.0727},{"model_row":"claude-sonnet-4.5@reasoning=none","model_org":"anthropic","model_name":"claude-sonnet-4.5","reasoning_level":"none","sample_count":55,"mean_completion_tokens":319.5,"median_completion_tokens":311,"mean_reasoning_tokens":0,"median_reasoning_tokens":0,"mean_total_tokens":360.5,"avg_score":1.3273,"green_rate":0.4545,"red_rate":0.1636},{"model_row":"claude-3.7-sonnet:thinking@reasoning=default","model_org":"anthropic","model_name":"claude-3.7-sonnet:thinking","reasoning_level":"default","sample_count":52,"mean_completion_tokens":539.3,"median_completion_tokens":467.5,"mean_reasoning_tokens":431.4,"median_reasoning_tokens":371.0,"mean_total_tokens":608.6,"avg_score":1.3269,"green_rate":0.5769,"red_rate":0.25},{"model_row":"claude-3.5-haiku@reasoning=default","model_org":"anthropic","model_name":"claude-3.5-haiku","reasoning_level":"default","sample_count":55,"mean_completion_tokens":102.7,"median_completion_tokens":84,"mean_reasoning_tokens":0,"median_reasoning_tokens":0,"mean_total_tokens":143.7,"avg_score":1.2909,"green_rate":0.6,"red_rate":0.3091},{"model_row":"kimi-k2.5@reasoning=none","model_org":"moonshotai","model_name":"kimi-k2.5","reasoning_level":"none","sample_count":55,"mean_completion_tokens":355.9,"median_completion_tokens":320,"mean_reasoning_tokens":0,"median_reasoning_tokens":0,"mean_total_tokens":398.1,"avg_score":1.1818,"green_rate":0.3273,"red_rate":0.1455},{"model_row":"claude-3.5-sonnet@reasoning=default","model_org":"anthropic","model_name":"claude-3.5-sonnet","reasoning_level":"default","sample_count":55,"mean_completion_tokens":100.9,"median_completion_tokens":83,"mean_reasoning_tokens":0,"median_reasoning_tokens":0,"mean_total_tokens":141.9,"avg_score":1.1636,"green_rate":0.5273,"red_rate":0.3636},{"model_row":"claude-3.7-sonnet@reasoning=default","model_org":"anthropic","model_name":"claude-3.7-sonnet","reasoning_level":"default","sample_count":52,"mean_completion_tokens":188.5,"median_completion_tokens":180.0,"mean_reasoning_tokens":0,"median_reasoning_tokens":0.0,"mean_total_tokens":228.7,"avg_score":1.1346,"green_rate":0.5,"red_rate":0.3654},{"model_row":"claude-opus-4.1@reasoning=none","model_org":"anthropic","model_name":"claude-opus-4.1","reasoning_level":"none","sample_count":55,"mean_completion_tokens":283.7,"median_completion_tokens":304,"mean_reasoning_tokens":0,"median_reasoning_tokens":0,"mean_total_tokens":324.7,"avg_score":1.0182,"green_rate":0.3091,"red_rate":0.3091},{"model_row":"gpt-5.2-codex@reasoning=low","model_org":"openai","model_name":"gpt-5.2-codex","reasoning_level":"low","sample_count":55,"mean_completion_tokens":347.5,"median_completion_tokens":313,"mean_reasoning_tokens":76.3,"median_reasoning_tokens":64,"mean_total_tokens":384.1,"avg_score":0.9394,"green_rate":0.2364,"red_rate":0.2909},{"model_row":"gpt-5.1-chat@reasoning=default","model_org":"openai","model_name":"gpt-5.1-chat","reasoning_level":"default","sample_count":55,"mean_completion_tokens":234.5,"median_completion_tokens":229,"mean_reasoning_tokens":8.1,"median_reasoning_tokens":0,"mean_total_tokens":271.0,"avg_score":0.8909,"green_rate":0.3636,"red_rate":0.4727},{"model_row":"gpt-5.2@reasoning=none","model_org":"openai","model_name":"gpt-5.2","reasoning_level":"none","sample_count":55,"mean_completion_tokens":979.7,"median_completion_tokens":966,"mean_reasoning_tokens":0,"median_reasoning_tokens":0,"mean_total_tokens":1016.3,"avg_score":0.8727,"green_rate":0.1636,"red_rate":0.2909},{"model_row":"kimi-k2.5@reasoning=high","model_org":"moonshotai","model_name":"kimi-k2.5","reasoning_level":"high","sample_count":55,"mean_completion_tokens":1246.5,"median_completion_tokens":1221,"mean_reasoning_tokens":756.0,"median_reasoning_tokens":652,"mean_total_tokens":1288.7,"avg_score":0.8545,"green_rate":0.2182,"red_rate":0.4},{"model_row":"claude-opus-4.1@reasoning=high","model_org":"anthropic","model_name":"claude-opus-4.1","reasoning_level":"high","sample_count":55,"mean_completion_tokens":496.8,"median_completion_tokens":504,"mean_reasoning_tokens":250.3,"median_reasoning_tokens":249,"mean_total_tokens":566.8,"avg_score":0.8485,"green_rate":0.2909,"red_rate":0.4},{"model_row":"claude-sonnet-4@reasoning=none","model_org":"anthropic","model_name":"claude-sonnet-4","reasoning_level":"none","sample_count":55,"mean_completion_tokens":287.5,"median_completion_tokens":287,"mean_reasoning_tokens":0,"median_reasoning_tokens":0,"mean_total_tokens":328.5,"avg_score":0.8424,"green_rate":0.2364,"red_rate":0.3818},{"model_row":"claude-opus-4@reasoning=default","model_org":"anthropic","model_name":"claude-opus-4","reasoning_level":"default","sample_count":55,"mean_completion_tokens":291.9,"median_completion_tokens":293,"mean_reasoning_tokens":0,"median_reasoning_tokens":0,"mean_total_tokens":332.9,"avg_score":0.8182,"green_rate":0.3273,"red_rate":0.5091},{"model_row":"gpt-5-codex@reasoning=default","model_org":"openai","model_name":"gpt-5-codex","reasoning_level":"default","sample_count":55,"mean_completion_tokens":831.6,"median_completion_tokens":580,"mean_reasoning_tokens":274.5,"median_reasoning_tokens":192,"mean_total_tokens":868.1,"avg_score":0.7818,"green_rate":0.3455,"red_rate":0.5636},{"model_row":"gpt-5.2-codex@reasoning=high","model_org":"openai","model_name":"gpt-5.2-codex","reasoning_level":"high","sample_count":55,"mean_completion_tokens":1466.0,"median_completion_tokens":1409,"mean_reasoning_tokens":1077.4,"median_reasoning_tokens":960,"mean_total_tokens":1502.5,"avg_score":0.7636,"green_rate":0.2364,"red_rate":0.4},{"model_row":"claude-sonnet-4@reasoning=high","model_org":"anthropic","model_name":"claude-sonnet-4","reasoning_level":"high","sample_count":55,"mean_completion_tokens":550.9,"median_completion_tokens":546,"mean_reasoning_tokens":332.5,"median_reasoning_tokens":322,"mean_total_tokens":620.9,"avg_score":0.7394,"green_rate":0.2,"red_rate":0.4545},{"model_row":"gemini-3-pro-preview@reasoning=low","model_org":"google","model_name":"gemini-3-pro-preview","reasoning_level":"low","sample_count":55,"mean_completion_tokens":936.9,"median_completion_tokens":992,"mean_reasoning_tokens":119.5,"median_reasoning_tokens":119,"mean_total_tokens":969.6,"avg_score":0.7333,"green_rate":0.2545,"red_rate":0.4909},{"model_row":"gpt-5.2-codex@reasoning=xhigh","model_org":"openai","model_name":"gpt-5.2-codex","reasoning_level":"xhigh","sample_count":55,"mean_completion_tokens":2311.9,"median_completion_tokens":2237,"mean_reasoning_tokens":1925.8,"median_reasoning_tokens":1792,"mean_total_tokens":2348.5,"avg_score":0.7212,"green_rate":0.2,"red_rate":0.3818},{"model_row":"gpt-5.2@reasoning=high","model_org":"openai","model_name":"gpt-5.2","reasoning_level":"high","sample_count":55,"mean_completion_tokens":1539.3,"median_completion_tokens":1524,"mean_reasoning_tokens":604.6,"median_reasoning_tokens":546,"mean_total_tokens":1575.8,"avg_score":0.703,"green_rate":0.0545,"red_rate":0.4182},{"model_row":"gpt-5.1-codex@reasoning=default","model_org":"openai","model_name":"gpt-5.1-codex","reasoning_level":"default","sample_count":55,"mean_completion_tokens":393.2,"median_completion_tokens":258,"mean_reasoning_tokens":97.7,"median_reasoning_tokens":12,"mean_total_tokens":429.7,"avg_score":0.6727,"green_rate":0.2909,"red_rate":0.6182},{"model_row":"o3@reasoning=low","model_org":"openai","model_name":"o3","reasoning_level":"low","sample_count":55,"mean_completion_tokens":1093.1,"median_completion_tokens":1153,"mean_reasoning_tokens":228.9,"median_reasoning_tokens":192,"mean_total_tokens":1129.6,"avg_score":0.6606,"green_rate":0.1818,"red_rate":0.4727},{"model_row":"gpt-5.1@reasoning=default","model_org":"openai","model_name":"gpt-5.1","reasoning_level":"default","sample_count":55,"mean_completion_tokens":1723.2,"median_completion_tokens":1722,"mean_reasoning_tokens":532.7,"median_reasoning_tokens":529,"mean_total_tokens":1822.1,"avg_score":0.6364,"green_rate":0.2545,"red_rate":0.6182},{"model_row":"gemini-3.1-pro-preview@reasoning=low","model_org":"google","model_name":"gemini-3.1-pro-preview","reasoning_level":"low","sample_count":55,"mean_completion_tokens":1454.7,"median_completion_tokens":1562,"mean_reasoning_tokens":702.0,"median_reasoning_tokens":732,"mean_total_tokens":1487.7,"avg_score":0.5879,"green_rate":0.1636,"red_rate":0.6},{"model_row":"mimo-v2-flash@reasoning=none","model_org":"xiaomi","model_name":"mimo-v2-flash","reasoning_level":"none","sample_count":55,"mean_completion_tokens":574.4,"median_completion_tokens":319,"mean_reasoning_tokens":0,"median_reasoning_tokens":0,"mean_total_tokens":642.9,"avg_score":0.5879,"green_rate":0.0909,"red_rate":0.4909},{"model_row":"gemini-3-pro-preview@reasoning=high","model_org":"google","model_name":"gemini-3-pro-preview","reasoning_level":"high","sample_count":55,"mean_completion_tokens":2096.1,"median_completion_tokens":2192,"mean_reasoning_tokens":1157.5,"median_reasoning_tokens":1137,"mean_total_tokens":2128.7,"avg_score":0.5758,"green_rate":0.1273,"red_rate":0.5818},{"model_row":"claude-3-haiku@reasoning=default","model_org":"anthropic","model_name":"claude-3-haiku","reasoning_level":"default","sample_count":54,"mean_completion_tokens":248.4,"median_completion_tokens":181.0,"mean_reasoning_tokens":0,"median_reasoning_tokens":0.0,"mean_total_tokens":289.3,"avg_score":0.5741,"green_rate":0.1852,"red_rate":0.6111},{"model_row":"glm-5@reasoning=high","model_org":"z-ai","model_name":"glm-5","reasoning_level":"high","sample_count":55,"mean_completion_tokens":2419.7,"median_completion_tokens":2414,"mean_reasoning_tokens":1575.6,"median_reasoning_tokens":1482,"mean_total_tokens":2456.1,"avg_score":0.5455,"green_rate":0.1636,"red_rate":0.5455},{"model_row":"gpt-5@reasoning=default","model_org":"openai","model_name":"gpt-5","reasoning_level":"default","sample_count":55,"mean_completion_tokens":2661.5,"median_completion_tokens":2664,"mean_reasoning_tokens":1730.3,"median_reasoning_tokens":1728,"mean_total_tokens":2698.0,"avg_score":0.5455,"green_rate":0.2182,"red_rate":0.6727},{"model_row":"gemini-3.1-pro-preview@reasoning=high","model_org":"google","model_name":"gemini-3.1-pro-preview","reasoning_level":"high","sample_count":55,"mean_completion_tokens":2086.4,"median_completion_tokens":2113,"mean_reasoning_tokens":1125.7,"median_reasoning_tokens":1128,"mean_total_tokens":2119.4,"avg_score":0.5333,"green_rate":0.1273,"red_rate":0.6364},{"model_row":"gpt-4o-2024-08-06@reasoning=default","model_org":"openai","model_name":"gpt-4o-2024-08-06","reasoning_level":"default","sample_count":55,"mean_completion_tokens":376.0,"median_completion_tokens":356,"mean_reasoning_tokens":0,"median_reasoning_tokens":0,"mean_total_tokens":413.5,"avg_score":0.5333,"green_rate":0.0545,"red_rate":0.5273},{"model_row":"gpt-4o@reasoning=default","model_org":"openai","model_name":"gpt-4o","reasoning_level":"default","sample_count":55,"mean_completion_tokens":384.2,"median_completion_tokens":389,"mean_reasoning_tokens":0,"median_reasoning_tokens":0,"mean_total_tokens":421.7,"avg_score":0.5333,"green_rate":0.0909,"red_rate":0.4909},{"model_row":"grok-4.1-fast@reasoning=high","model_org":"x-ai","model_name":"grok-4.1-fast","reasoning_level":"high","sample_count":55,"mean_completion_tokens":1256,"median_completion_tokens":1284,"mean_reasoning_tokens":506.0,"median_reasoning_tokens":469,"mean_total_tokens":1441.8,"avg_score":0.5273,"green_rate":0.1091,"red_rate":0.5636},{"model_row":"ernie-4.5-300b-a47b@reasoning=default","model_org":"baidu","model_name":"ernie-4.5-300b-a47b","reasoning_level":"default","sample_count":55,"mean_completion_tokens":976.7,"median_completion_tokens":947,"mean_reasoning_tokens":0,"median_reasoning_tokens":0,"mean_total_tokens":1012.5,"avg_score":0.5212,"green_rate":0.1091,"red_rate":0.5091},{"model_row":"gemini-2.5-pro@reasoning=default","model_org":"google","model_name":"gemini-2.5-pro","reasoning_level":"default","sample_count":55,"mean_completion_tokens":3215.2,"median_completion_tokens":3205,"mean_reasoning_tokens":1673.8,"median_reasoning_tokens":1631,"mean_total_tokens":3248.1,"avg_score":0.5091,"green_rate":0.2364,"red_rate":0.7273},{"model_row":"minimax-m2.5@reasoning=low","model_org":"minimax","model_name":"minimax-m2.5","reasoning_level":"low","sample_count":55,"mean_completion_tokens":2049.6,"median_completion_tokens":1530,"mean_reasoning_tokens":879.9,"median_reasoning_tokens":603,"mean_total_tokens":2118.2,"avg_score":0.497,"green_rate":0.1091,"red_rate":0.5636},{"model_row":"gpt-5.3-codex@reasoning=high","model_org":"openai","model_name":"gpt-5.3-codex","reasoning_level":"high","sample_count":55,"mean_completion_tokens":1063.7,"median_completion_tokens":942,"mean_reasoning_tokens":692.2,"median_reasoning_tokens":613,"mean_total_tokens":1100.2,"avg_score":0.4788,"green_rate":0.0909,"red_rate":0.5818},{"model_row":"gpt-5.3-codex@reasoning=low","model_org":"openai","model_name":"gpt-5.3-codex","reasoning_level":"low","sample_count":55,"mean_completion_tokens":541.1,"median_completion_tokens":524,"mean_reasoning_tokens":61.8,"median_reasoning_tokens":56,"mean_total_tokens":577.6,"avg_score":0.4727,"green_rate":0.0727,"red_rate":0.5455},{"model_row":"deepseek-v3.2@reasoning=none","model_org":"deepseek","model_name":"deepseek-v3.2","reasoning_level":"none","sample_count":55,"mean_completion_tokens":876.6,"median_completion_tokens":911,"mean_reasoning_tokens":0,"median_reasoning_tokens":0,"mean_total_tokens":913.7,"avg_score":0.4606,"green_rate":0.0727,"red_rate":0.5636},{"model_row":"gpt-4.1@reasoning=default","model_org":"openai","model_name":"gpt-4.1","reasoning_level":"default","sample_count":55,"mean_completion_tokens":670.4,"median_completion_tokens":709,"mean_reasoning_tokens":0,"median_reasoning_tokens":0,"mean_total_tokens":707.9,"avg_score":0.4545,"green_rate":0.1273,"red_rate":0.6},{"model_row":"gpt-5-chat@reasoning=default","model_org":"openai","model_name":"gpt-5-chat","reasoning_level":"default","sample_count":55,"mean_completion_tokens":576.2,"median_completion_tokens":632,"mean_reasoning_tokens":0,"median_reasoning_tokens":0,"mean_total_tokens":613.7,"avg_score":0.4545,"green_rate":0.1455,"red_rate":0.6909},{"model_row":"minimax-m2.5@reasoning=high","model_org":"minimax","model_name":"minimax-m2.5","reasoning_level":"high","sample_count":55,"mean_completion_tokens":2257.8,"median_completion_tokens":1563,"mean_reasoning_tokens":1038.0,"median_reasoning_tokens":797,"mean_total_tokens":2326.3,"avg_score":0.4545,"green_rate":0.0727,"red_rate":0.6},{"model_row":"glm-5@reasoning=none","model_org":"z-ai","model_name":"glm-5","reasoning_level":"none","sample_count":55,"mean_completion_tokens":981.2,"median_completion_tokens":1038,"mean_reasoning_tokens":0,"median_reasoning_tokens":0,"mean_total_tokens":1017.7,"avg_score":0.4424,"green_rate":0.0727,"red_rate":0.6},{"model_row":"gpt-5.3-codex@reasoning=xhigh","model_org":"openai","model_name":"gpt-5.3-codex","reasoning_level":"xhigh","sample_count":55,"mean_completion_tokens":2360.0,"median_completion_tokens":2341,"mean_reasoning_tokens":2041.1,"median_reasoning_tokens":2003,"mean_total_tokens":2396.5,"avg_score":0.4424,"green_rate":0.0909,"red_rate":0.5455},{"model_row":"intellect-3@reasoning=high","model_org":"prime-intellect","model_name":"intellect-3","reasoning_level":"high","sample_count":55,"mean_completion_tokens":2295.0,"median_completion_tokens":1638,"mean_reasoning_tokens":1551.5,"median_reasoning_tokens":700,"mean_total_tokens":2335.4,"avg_score":0.4364,"green_rate":0.0545,"red_rate":0.5455},{"model_row":"intellect-3@reasoning=low","model_org":"prime-intellect","model_name":"intellect-3","reasoning_level":"low","sample_count":55,"mean_completion_tokens":2157.5,"median_completion_tokens":1657,"mean_reasoning_tokens":1409.3,"median_reasoning_tokens":686,"mean_total_tokens":2198,"avg_score":0.4,"green_rate":0.1091,"red_rate":0.6545},{"model_row":"o4-mini@reasoning=low","model_org":"openai","model_name":"o4-mini","reasoning_level":"low","sample_count":55,"mean_completion_tokens":826.7,"median_completion_tokens":856,"mean_reasoning_tokens":195.3,"median_reasoning_tokens":192,"mean_total_tokens":863.2,"avg_score":0.4,"green_rate":0.0545,"red_rate":0.6727},{"model_row":"gemini-2.5-flash@reasoning=default","model_org":"google","model_name":"gemini-2.5-flash","reasoning_level":"default","sample_count":54,"mean_completion_tokens":1708.2,"median_completion_tokens":1781.5,"mean_reasoning_tokens":0,"median_reasoning_tokens":0.0,"mean_total_tokens":1740.6,"avg_score":0.3889,"green_rate":0.1481,"red_rate":0.7593},{"model_row":"deepseek-v3.2@reasoning=high","model_org":"deepseek","model_name":"deepseek-v3.2","reasoning_level":"high","sample_count":55,"mean_completion_tokens":1232.0,"median_completion_tokens":1246,"mean_reasoning_tokens":302.4,"median_reasoning_tokens":258,"mean_total_tokens":1267.4,"avg_score":0.3758,"green_rate":0.0909,"red_rate":0.6727},{"model_row":"mimo-v2-flash@reasoning=high","model_org":"xiaomi","model_name":"mimo-v2-flash","reasoning_level":"high","sample_count":55,"mean_completion_tokens":1768.4,"median_completion_tokens":1506,"mean_reasoning_tokens":823.6,"median_reasoning_tokens":486,"mean_total_tokens":1835.5,"avg_score":0.3636,"green_rate":0.0545,"red_rate":0.6545},{"model_row":"seed-1.6@reasoning=none","model_org":"bytedance-seed","model_name":"seed-1.6","reasoning_level":"none","sample_count":55,"mean_completion_tokens":1487.9,"median_completion_tokens":1625,"mean_reasoning_tokens":0,"median_reasoning_tokens":0,"mean_total_tokens":1611.4,"avg_score":0.3515,"green_rate":0.0727,"red_rate":0.6545},{"model_row":"gemini-2.0-flash-001@reasoning=default","model_org":"google","model_name":"gemini-2.0-flash-001","reasoning_level":"default","sample_count":55,"mean_completion_tokens":1412.5,"median_completion_tokens":1488,"mean_reasoning_tokens":0,"median_reasoning_tokens":0,"mean_total_tokens":1444.7,"avg_score":0.3455,"green_rate":0.1273,"red_rate":0.7818},{"model_row":"gemini-3-flash-preview@reasoning=high","model_org":"google","model_name":"gemini-3-flash-preview","reasoning_level":"high","sample_count":55,"mean_completion_tokens":1534.4,"median_completion_tokens":1579,"mean_reasoning_tokens":602.5,"median_reasoning_tokens":604,"mean_total_tokens":1567.2,"avg_score":0.3455,"green_rate":0.0364,"red_rate":0.6909},{"model_row":"grok-4.1-fast@reasoning=none","model_org":"x-ai","model_name":"grok-4.1-fast","reasoning_level":"none","sample_count":55,"mean_completion_tokens":851.7,"median_completion_tokens":840,"mean_reasoning_tokens":0,"median_reasoning_tokens":0,"mean_total_tokens":1049.6,"avg_score":0.3455,"green_rate":0.1091,"red_rate":0.7273},{"model_row":"o4-mini@reasoning=high","model_org":"openai","model_name":"o4-mini","reasoning_level":"high","sample_count":55,"mean_completion_tokens":2226.0,"median_completion_tokens":1891,"mean_reasoning_tokens":1519.7,"median_reasoning_tokens":1152,"mean_total_tokens":2262.5,"avg_score":0.3455,"green_rate":0.0727,"red_rate":0.6909},{"model_row":"gpt-oss-120b@reasoning=low","model_org":"openai","model_name":"gpt-oss-120b","reasoning_level":"low","sample_count":55,"mean_completion_tokens":2257.4,"median_completion_tokens":2236,"mean_reasoning_tokens":74.2,"median_reasoning_tokens":32,"mean_total_tokens":2356.1,"avg_score":0.3333,"green_rate":0.0364,"red_rate":0.6545},{"model_row":"seed-1.6@reasoning=high","model_org":"bytedance-seed","model_name":"seed-1.6","reasoning_level":"high","sample_count":55,"mean_completion_tokens":2566.3,"median_completion_tokens":2572,"mean_reasoning_tokens":1298.2,"median_reasoning_tokens":1205,"mean_total_tokens":2677.8,"avg_score":0.3333,"green_rate":0.0364,"red_rate":0.6182},{"model_row":"gpt-4o-mini-2024-07-18@reasoning=default","model_org":"openai","model_name":"gpt-4o-mini-2024-07-18","reasoning_level":"default","sample_count":55,"mean_completion_tokens":470.9,"median_completion_tokens":510,"mean_reasoning_tokens":0,"median_reasoning_tokens":0,"mean_total_tokens":508.4,"avg_score":0.3212,"green_rate":0.0182,"red_rate":0.6},{"model_row":"gemini-3-flash-preview@reasoning=none","model_org":"google","model_name":"gemini-3-flash-preview","reasoning_level":"none","sample_count":55,"mean_completion_tokens":852.2,"median_completion_tokens":840,"mean_reasoning_tokens":0,"median_reasoning_tokens":0,"mean_total_tokens":884.9,"avg_score":0.2849,"green_rate":0.0364,"red_rate":0.7273},{"model_row":"gpt-4o-mini@reasoning=default","model_org":"openai","model_name":"gpt-4o-mini","reasoning_level":"default","sample_count":55,"mean_completion_tokens":456.5,"median_completion_tokens":467,"mean_reasoning_tokens":0,"median_reasoning_tokens":0,"mean_total_tokens":494.1,"avg_score":0.2849,"green_rate":0.0182,"red_rate":0.6727},{"model_row":"gemma-3-27b-it@reasoning=default","model_org":"google","model_name":"gemma-3-27b-it","reasoning_level":"default","sample_count":55,"mean_completion_tokens":1729.5,"median_completion_tokens":1783,"mean_reasoning_tokens":0,"median_reasoning_tokens":0,"mean_total_tokens":1770.6,"avg_score":0.2424,"green_rate":0.0364,"red_rate":0.6909},{"model_row":"gpt-oss-120b@reasoning=high","model_org":"openai","model_name":"gpt-oss-120b","reasoning_level":"high","sample_count":55,"mean_completion_tokens":4128.2,"median_completion_tokens":3982,"mean_reasoning_tokens":1375.0,"median_reasoning_tokens":1331,"mean_total_tokens":4226.1,"avg_score":0.2303,"green_rate":0.0364,"red_rate":0.7273},{"model_row":"mistral-large-2512@reasoning=default","model_org":"mistralai","model_name":"mistral-large-2512","reasoning_level":"default","sample_count":55,"mean_completion_tokens":1738.7,"median_completion_tokens":1772,"mean_reasoning_tokens":0,"median_reasoning_tokens":0,"mean_total_tokens":1773.7,"avg_score":0.2,"green_rate":0.0,"red_rate":0.7273}],"correlations":[{"label":"mean_completion_tokens vs avg_score","n":74,"pearson_r":-0.486129,"pearson_p":1.1e-05,"spearman_r":-0.549424,"spearman_p":0.0},{"label":"median_completion_tokens vs avg_score","n":74,"pearson_r":-0.487483,"pearson_p":1.1e-05,"spearman_r":-0.550973,"spearman_p":0.0},{"label":"mean_completion_tokens vs green_rate","n":74,"pearson_r":-0.455613,"pearson_p":4.5e-05,"spearman_r":-0.503211,"spearman_p":5e-06},{"label":"mean_reasoning_tokens vs avg_score (reasoning models only)","n":42,"pearson_r":-0.343229,"pearson_p":0.026059,"spearman_r":-0.346219,"spearman_p":0.024703},{"label":"mean_reasoning_tokens vs green_rate (reasoning models only)","n":42,"pearson_r":-0.330265,"pearson_p":0.03267,"spearman_r":-0.293125,"spearman_p":0.059571}],"per_question_correlation":{"n_questions":55,"mean_pearson_r":-0.3356,"median_pearson_r":-0.3561,"min_pearson_r":-0.646,"max_pearson_r":0.1805}};</script>
+<!-- EMBEDDED_DATA_END -->
+</body>
+</html>
