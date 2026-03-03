@@ -36,6 +36,7 @@ from typing import Any
 
 
 DEFAULT_RESPONSE_SYSTEM_PROMPT = "You are a helpful assistant."
+DEFAULT_RESPONSE_USER_PREFIX = ""
 EMPTY_MODEL_RESPONSE_PLACEHOLDER = "[Model returned an empty response.]"
 
 REASONING_EFFORT_ALIASES: dict[str, str] = {
@@ -227,6 +228,7 @@ COLLECT_DEFAULTS: dict[str, Any] = {
     "retries": 3,
     "timeout_seconds": 120,
     "response_system_prompt": DEFAULT_RESPONSE_SYSTEM_PROMPT,
+    "response_user_prefix": DEFAULT_RESPONSE_USER_PREFIX,
     "omit_response_system_prompt": False,
     "response_reasoning_effort": "off",
     "model_reasoning_efforts": "",
@@ -430,6 +432,14 @@ def parse_args() -> argparse.Namespace:
     collect.add_argument(
         "--response-system-prompt",
         default=DEFAULT_RESPONSE_SYSTEM_PROMPT,
+    )
+    collect.add_argument(
+        "--response-user-prefix",
+        default=DEFAULT_RESPONSE_USER_PREFIX,
+        help=(
+            "Optional static text prepended before every benchmark question in the "
+            "user message."
+        ),
     )
     collect.add_argument(
         "--omit-response-system-prompt",
@@ -1987,6 +1997,16 @@ def utc_now_iso() -> str:
     return dt.datetime.now(dt.UTC).isoformat()
 
 
+def compose_user_question(question_text: str, user_prefix: str) -> str:
+    prefix = str(user_prefix).strip()
+    question = str(question_text)
+    if not prefix:
+        return question
+    if not question.strip():
+        return prefix
+    return f"{prefix}\n\n{question}"
+
+
 def build_collect_tasks(
     model_variants: list[dict[str, Any]],
     questions: list[dict[str, Any]],
@@ -2034,6 +2054,7 @@ def collect_one(
     *,
     client: OpenRouterClient | None,
     system_prompt: str,
+    user_prefix: str,
     omit_system_prompt: bool,
     temperature: float | None,
     max_tokens: int,
@@ -2045,12 +2066,13 @@ def collect_one(
     store_response_raw: bool,
 ) -> dict[str, Any]:
     question = task["question"]
+    prompt_question = compose_user_question(question["question"], user_prefix)
     started_at = utc_now_iso()
     t0 = time.perf_counter()
     request_messages: list[dict[str, str]] = []
     if not omit_system_prompt and system_prompt.strip():
         request_messages.append({"role": "system", "content": system_prompt})
-    request_messages.append({"role": "user", "content": question["question"]})
+    request_messages.append({"role": "user", "content": prompt_question})
 
     reasoning_effort = task.get("response_reasoning_effort")
     effort_value = (
@@ -2084,6 +2106,7 @@ def collect_one(
         "is_control": bool(question.get("is_control", False)),
         "domain": question["domain"],
         "question": question["question"],
+        "prompt_question": prompt_question,
         "nonsensical_element": question["nonsensical_element"],
         "stateless_request": True,
         "request_messages": request_messages if store_request_messages else [],
@@ -2349,6 +2372,7 @@ def run_collect(args: argparse.Namespace) -> int:
         "response_system_prompt": None
         if omit_system_prompt
         else args.response_system_prompt,
+        "response_user_prefix": str(args.response_user_prefix).strip() or None,
         "omit_response_system_prompt": omit_system_prompt,
         "response_reasoning_effort": base_reasoning_effort,
         "model_reasoning_efforts": per_model_reasoning_efforts,
@@ -2476,6 +2500,7 @@ def run_collect(args: argparse.Namespace) -> int:
                     task,
                     client=client,
                     system_prompt=args.response_system_prompt,
+                    user_prefix=args.response_user_prefix,
                     omit_system_prompt=omit_system_prompt,
                     temperature=args.temperature,
                     max_tokens=args.max_tokens,
@@ -2523,6 +2548,9 @@ def run_collect(args: argparse.Namespace) -> int:
                             record = future.result()
                         except Exception as exc:  # pylint: disable=broad-except
                             question = task["question"]
+                            prompt_question = compose_user_question(
+                                question["question"], args.response_user_prefix
+                            )
                             record = {
                                 "sample_id": task["sample_id"],
                                 "run_index": task["run_index"],
@@ -2544,6 +2572,7 @@ def run_collect(args: argparse.Namespace) -> int:
                                 "is_control": bool(question.get("is_control", False)),
                                 "domain": question["domain"],
                                 "question": question["question"],
+                                "prompt_question": prompt_question,
                                 "nonsensical_element": question["nonsensical_element"],
                                 "stateless_request": True,
                                 "request_messages": [],
@@ -2866,6 +2895,9 @@ def grade_one(
         ),
         "domain": response_row.get("domain"),
         "question": response_row.get("question"),
+        "prompt_question": response_row.get(
+            "prompt_question", response_row.get("question")
+        ),
         "nonsensical_element": response_row.get("nonsensical_element"),
         "response_text": response_row.get("response_text", ""),
         "source_response_error": response_row.get("error", ""),
@@ -2909,7 +2941,9 @@ def grade_one(
         # Explicit replacement instead of .format() to avoid KeyError when
         # template doesn't use all keys or text contains literal curly braces
         judge_prompt = active_template
-        judge_prompt = judge_prompt.replace("{question}", grade_row["question"])
+        judge_prompt = judge_prompt.replace(
+            "{question}", str(grade_row["prompt_question"])
+        )
         judge_prompt = judge_prompt.replace("{nonsensical_element}", grade_row["nonsensical_element"])
         judge_prompt = judge_prompt.replace("{response}", response_text)
 
@@ -3504,6 +3538,9 @@ def run_grade(args: argparse.Namespace) -> int:
                             ),
                             "domain": source_row.get("domain"),
                             "question": source_row.get("question"),
+                            "prompt_question": source_row.get(
+                                "prompt_question", source_row.get("question")
+                            ),
                             "nonsensical_element": source_row.get("nonsensical_element"),
                             "response_text": source_row.get("response_text", ""),
                             "source_response_error": source_row.get("error", ""),
@@ -3820,6 +3857,9 @@ def _build_synthetic_tiebreak_rows(
             ),
             "domain": source_row.get("domain"),
             "question": source_row.get("question"),
+            "prompt_question": source_row.get(
+                "prompt_question", source_row.get("question")
+            ),
             "nonsensical_element": source_row.get("nonsensical_element"),
             "response_text": source_row.get("response_text", ""),
             "source_response_error": source_row.get("error", ""),
@@ -4317,6 +4357,7 @@ def align_grade_rows(grade_sets: list[dict[str, Any]]) -> list[dict[str, Any]]:
             ),
             "domain": base.get("domain"),
             "question": base.get("question"),
+            "prompt_question": base.get("prompt_question", base.get("question")),
             "nonsensical_element": base.get("nonsensical_element"),
             "response_text": base.get("response_text", ""),
             "row_identity_mismatch": row_identity_mismatch,
@@ -5058,6 +5099,9 @@ def run_report(args: argparse.Namespace) -> int:
                 ),
                 "domain": response_row.get("domain"),
                 "question": response_row.get("question"),
+                "prompt_question": response_row.get(
+                    "prompt_question", response_row.get("question")
+                ),
                 "nonsensical_element": response_row.get("nonsensical_element"),
                 "response_text": response_row.get("response_text", ""),
                 "request_messages": response_row.get("request_messages", []),
