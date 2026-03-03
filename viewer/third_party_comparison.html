@@ -17,6 +17,7 @@
       --green: #1f9d55;
       --amber: #d88710;
       --red: #c13d36;
+      --error: #55635f;
       --shadow: 0 10px 30px rgba(20, 35, 30, 0.08);
       --radius: 14px;
     }
@@ -216,6 +217,12 @@
       color: #775107;
     }
 
+    .status.partial {
+      background: #f2f4f3;
+      border-color: #cfd7d3;
+      color: #445551;
+    }
+
     .compare-grid {
       display: grid;
       gap: 10px;
@@ -261,6 +268,11 @@
 
     .seg-0 {
       background: var(--red);
+      height: 100%;
+    }
+
+    .seg-e {
+      background: var(--error);
       height: 100%;
     }
 
@@ -399,13 +411,13 @@
         </article>
         <article class="kpi">
           <p class="kpi-label">Runs Fully Graded</p>
-          <p class="kpi-value">1 / 4</p>
-          <p class="kpi-hint">One model already has pushback deltas</p>
+          <p class="kpi-value">3 / 4</p>
+          <p class="kpi-hint">Plus 1 partial panel (credit-limited)</p>
         </article>
         <article class="kpi">
-          <p class="kpi-label">Observed Green-Rate Lift</p>
+          <p class="kpi-label">Mean Green Lift (Complete)</p>
           <p class="kpi-value">+10 pp</p>
-          <p class="kpi-hint">For <code>gpt-5.2-chat@default</code></p>
+          <p class="kpi-hint">Across 3 fully graded model rows</p>
         </article>
         <article class="kpi">
           <p class="kpi-label">Collection Spend</p>
@@ -437,7 +449,7 @@
         </thead>
         <tbody id="footprintRows"></tbody>
       </table>
-      <p class="foot">Pending rows are already collected and ready for <code>grade-panel</code>.</p>
+      <p class="foot">All rows are graded; one run is partial because judge calls were interrupted by OpenRouter credit exhaustion.</p>
     </section>
   </main>
 
@@ -446,15 +458,18 @@
       {
         label: "OpenAI GPT-5.2 Chat (default)",
         modelRow: "openai/gpt-5.2-chat@reasoning=default",
-        baseline: { avg: 0.83, green: 0.27, amber: 0.33, red: 0.40 },
+        baseline: { avg: 0.83, green: 0.27, amber: 0.33, red: 0.40, error: 0 },
         thirdParty: {
-          status: "graded",
+          status: "graded_complete",
           avg: 0.9567,
           green: 0.37,
           amber: 0.25,
           red: 0.38,
+          error: 0,
+          scoredCount: 100,
           runId: "run_v2_gpt52chat_thirdparty_20260303",
           rowCount: 100,
+          rowErrorCount: 0,
           cost: 1.1013835,
           avgTokens: 840.55,
           avgLatencyMs: 17355.43
@@ -463,11 +478,18 @@
       {
         label: "OpenAI GPT-5.2 Codex (low)",
         modelRow: "openai/gpt-5.2-codex@reasoning=low",
-        baseline: { avg: 1.1367, green: 0.45, amber: 0.26, red: 0.29 },
+        baseline: { avg: 1.1367, green: 0.45, amber: 0.26, red: 0.29, error: 0 },
         thirdParty: {
-          status: "pending",
+          status: "graded_complete",
+          avg: 1.2867,
+          green: 0.56,
+          amber: 0.20,
+          red: 0.24,
+          error: 0,
+          scoredCount: 100,
           runId: "run_v2_gpt52codex_low_thirdparty_20260303",
           rowCount: 100,
+          rowErrorCount: 0,
           cost: 0.4245395,
           avgTokens: 357.09,
           avgLatencyMs: 5241.43
@@ -476,11 +498,18 @@
       {
         label: "Anthropic Claude Sonnet 4.5 (none)",
         modelRow: "anthropic/claude-sonnet-4.5@reasoning=none",
-        baseline: { avg: 1.59, green: 0.74, amber: 0.13, red: 0.13 },
+        baseline: { avg: 1.59, green: 0.74, amber: 0.13, red: 0.13, error: 0 },
         thirdParty: {
-          status: "pending",
+          status: "graded_complete",
+          avg: 1.7633,
+          green: 0.83,
+          amber: 0.10,
+          red: 0.07,
+          error: 0,
+          scoredCount: 100,
           runId: "run_v2_claude45_none_thirdparty_20260303",
           rowCount: 100,
+          rowErrorCount: 0,
           cost: 0.530811,
           avgTokens: 409.85,
           avgLatencyMs: 10445.87
@@ -489,11 +518,18 @@
       {
         label: "OpenAI GPT-5.2 (none, robustness n=3)",
         modelRow: "openai/gpt-5.2@reasoning=none",
-        baseline: { avg: 1.10, green: 0.38, amber: 0.39, red: 0.23 },
+        baseline: { avg: 1.10, green: 0.38, amber: 0.39, red: 0.23, error: 0 },
         thirdParty: {
-          status: "pending",
+          status: "graded_partial",
+          avg: 1.2702,
+          green: 0.5085,
+          amber: 0.322,
+          red: 0.1695,
+          error: 0,
+          scoredCount: 177,
           runId: "run_v2_gpt52_thirdparty_n3_20260303",
           rowCount: 300,
+          rowErrorCount: 246,
           cost: 3.646531,
           avgTokens: 922.1333,
           avgLatencyMs: 17993.83
@@ -532,18 +568,25 @@
     }
 
     function stackHTML(data) {
+      const error = data.error || 0;
       return `
         <div class="stack" aria-label="score distribution">
           <span class="seg-2" style="width:${data.green * 100}%"></span>
           <span class="seg-1" style="width:${data.amber * 100}%"></span>
           <span class="seg-0" style="width:${data.red * 100}%"></span>
+          <span class="seg-e" style="width:${error * 100}%"></span>
         </div>
-        <p class="metric-line">Green ${pct(data.green)} · Amber ${pct(data.amber)} · Red ${pct(data.red)} · Avg ${data.avg.toFixed(4)}</p>
+        <p class="metric-line">Green ${pct(data.green)} · Amber ${pct(data.amber)} · Red ${pct(data.red)}${error > 0 ? ` · Unscored ${pct(error)}` : ""}</p>
       `;
     }
 
     for (const item of modelRows) {
-      const isGraded = item.thirdParty.status === "graded";
+      const isComplete = item.thirdParty.status === "graded_complete";
+      const isPartial = item.thirdParty.status === "graded_partial";
+      const isGraded = isComplete || isPartial;
+      if (isPartial) {
+        item.thirdParty.error = 1 - (item.thirdParty.scoredCount / item.thirdParty.rowCount);
+      }
 
       const row = document.createElement("article");
       row.className = "row";
@@ -555,7 +598,7 @@
           <p class="model-name">${item.label}</p>
           <p class="muted">${item.modelRow}</p>
         </div>
-        <span class="status ${isGraded ? "graded" : "pending"}">${isGraded ? "Graded" : "Collected, grading pending"}</span>
+        <span class="status ${isComplete ? "graded" : isPartial ? "partial" : "pending"}">${isComplete ? "Graded" : isPartial ? "Graded (partial)" : "Collected, grading pending"}</span>
       `;
       row.appendChild(top);
 
@@ -569,6 +612,7 @@
         <section class="metric-box">
           <p class="metric-title">Third-Party Formulation</p>
           ${isGraded ? stackHTML(item.thirdParty) : `<p class="metric-line">Responses collected (${item.thirdParty.rowCount} rows). Awaiting panel grading.</p>`}
+          ${isPartial ? `<p class="metric-line">Coverage: ${item.thirdParty.scoredCount}/${item.thirdParty.rowCount} scored rows (${pct(item.thirdParty.scoredCount / item.thirdParty.rowCount)}), row errors: ${item.thirdParty.rowErrorCount}</p>` : ""}
         </section>
       `;
       row.appendChild(grid);
@@ -578,11 +622,10 @@
       if (isGraded) {
         const deltaGreen = item.thirdParty.green - item.baseline.green;
         const deltaRed = item.thirdParty.red - item.baseline.red;
-        const deltaAvg = item.thirdParty.avg - item.baseline.avg;
         deltas.innerHTML = `
           <span class="delta-pill ${pillClass(deltaGreen)}">Green ${deltaFmt(deltaGreen, true)}</span>
           <span class="delta-pill ${pillClass(deltaRed, true)}">Red ${deltaFmt(deltaRed, true)}</span>
-          <span class="delta-pill ${pillClass(deltaAvg)}">Avg ${deltaFmt(deltaAvg, false)}</span>
+          ${isPartial ? `<span class="delta-pill flat">Partial scoring; interpret with caution</span>` : ""}
         `;
       } else {
         deltas.innerHTML = `<span class="delta-pill flat">Pushback deltas will appear after grading.</span>`;
@@ -599,7 +642,7 @@
         <td>$${item.thirdParty.cost.toFixed(6)}</td>
         <td>${item.thirdParty.avgTokens.toFixed(2)}</td>
         <td>${(item.thirdParty.avgLatencyMs / 1000).toFixed(2)}s</td>
-        <td>${isGraded ? "graded" : "pending grade-panel"}</td>
+        <td>${isComplete ? "graded" : isPartial ? "graded (partial, credit-limited)" : "pending grade-panel"}</td>
       `;
       footprintRows.appendChild(footprint);
     }
