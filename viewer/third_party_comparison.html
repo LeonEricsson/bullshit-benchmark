@@ -17,20 +17,15 @@
       --green: #1f9d55;
       --amber: #d88710;
       --red: #c13d36;
-      --error: #55635f;
+      --error: #4a5350;
       --shadow: 0 10px 30px rgba(20, 35, 30, 0.08);
       --radius: 14px;
     }
 
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
-    html,
-    body {
-      margin: 0;
-      padding: 0;
-      min-height: 100%;
+    html, body {
+      margin: 0; padding: 0; min-height: 100%;
       color: var(--ink);
       background: radial-gradient(1200px 700px at 100% -50%, #d9efe9 0%, transparent 70%),
         radial-gradient(1000px 600px at -10% 10%, #f6ecd8 0%, transparent 70%),
@@ -39,52 +34,46 @@
     }
 
     .page {
-      width: min(1200px, 94vw);
+      width: min(1600px, 96vw);
       margin: 28px auto 48px;
       display: grid;
-      gap: 16px;
-      animation: fade-up 500ms ease both;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 18px;
+      animation: fade-up 500ms ease-out both;
     }
+
+    .page > * { min-width: 0; }
 
     .hero {
       background: linear-gradient(132deg, #113630 0%, #1b5f55 60%, #1d7268 100%);
       color: #f2faf8;
       border-radius: 18px;
-      padding: 20px 22px;
+      padding: 16px 22px;
       box-shadow: var(--shadow);
       display: flex;
+      align-items: center;
       justify-content: space-between;
-      gap: 12px;
+      gap: 16px;
       flex-wrap: wrap;
-      align-items: center;
     }
 
-    .hero-left {
-      display: flex;
-      gap: 12px;
-      align-items: center;
-    }
-
-    .hero-logo {
-      width: 78px;
-      height: auto;
-      display: block;
-      flex: 0 0 auto;
-    }
+    .hero-left { display: flex; align-items: center; gap: 12px; }
+    .hero-logo { width: 74px; height: auto; display: block; flex: 0 0 auto; }
 
     .hero h1 {
       margin: 0;
       font-family: "Rockwell", "Georgia", serif;
-      font-size: clamp(1.25rem, 2.3vw, 1.85rem);
-      line-height: 1.12;
       letter-spacing: 0.2px;
+      font-size: clamp(1.2rem, 2vw, 1.6rem);
+      line-height: 1.2;
+      color: #fff;
     }
 
     .hero-subtitle {
-      margin: 6px 0 0;
-      color: #d3ece6;
-      max-width: 780px;
-      font-size: 0.95rem;
+      margin: 2px 0 0;
+      font-size: 0.86rem;
+      color: #d5ebe5;
+      max-width: none;
     }
 
     .hero-actions {
@@ -94,22 +83,18 @@
     }
 
     .hero-link {
-      border: 1px solid rgba(255, 255, 255, 0.42);
-      color: #e6f4f1;
-      background: rgba(255, 255, 255, 0.07);
+      border: 1px solid rgba(255,255,255,0.32);
+      color: #eaf7f3;
+      background: rgba(255,255,255,0.09);
       border-radius: 999px;
-      padding: 7px 12px;
-      font-size: 0.8rem;
+      padding: 4px 10px;
+      font-size: 0.74rem;
+      line-height: 1;
       text-decoration: none;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
       white-space: nowrap;
     }
 
-    .hero-link:hover {
-      background: rgba(255, 255, 255, 0.16);
-    }
+    .hero-link:hover { background: rgba(255,255,255,0.16); }
 
     .panel {
       background: var(--panel);
@@ -117,271 +102,132 @@
       border-radius: var(--radius);
       box-shadow: var(--shadow);
       padding: 16px;
+      animation: fade-up 550ms ease both;
+      min-width: 0;
     }
 
     .panel h2 {
-      margin: 0 0 10px;
+      margin: 0 0 12px;
+      font-size: clamp(1.28rem, 1.7vw, 1.58rem);
+      line-height: 1.18;
       font-family: "Rockwell", "Georgia", serif;
-      font-size: clamp(1.2rem, 1.9vw, 1.5rem);
-      line-height: 1.15;
     }
 
-    .panel-subtle {
-      margin: 0;
-      color: var(--muted);
-      font-size: 0.9rem;
-    }
+    .subtle { margin: 0; color: var(--muted); font-size: 0.92rem; }
 
-    .kpis {
+    /* Filters */
+    .filters-grid {
       display: grid;
-      gap: 10px;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      margin-top: 12px;
-    }
-
-    .kpi {
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      padding: 10px 12px;
-      background: #fff;
-    }
-
-    .kpi-label {
-      color: var(--muted);
-      font-size: 0.8rem;
-      margin: 0 0 4px;
-    }
-
-    .kpi-value {
-      margin: 0;
-      font-size: 1.4rem;
-      font-weight: 700;
-      line-height: 1.1;
-      color: var(--teal);
-    }
-
-    .kpi-hint {
-      margin: 4px 0 0;
-      font-size: 0.78rem;
-      color: #61756f;
-    }
-
-    .rows {
-      margin-top: 12px;
-      display: grid;
-      gap: 10px;
-    }
-
-    .row {
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      padding: 11px 12px;
-      background: #fff;
-      display: grid;
-      gap: 10px;
-    }
-
-    .row-top {
-      display: flex;
-      justify-content: space-between;
-      gap: 10px;
-      align-items: center;
-      flex-wrap: wrap;
-    }
-
-    .model-name {
-      margin: 0;
-      font-size: 1rem;
-      font-weight: 700;
-      letter-spacing: 0.1px;
-    }
-
-    .status {
-      padding: 4px 9px;
-      border-radius: 999px;
-      font-size: 0.73rem;
-      font-weight: 700;
-      border: 1px solid;
-      white-space: nowrap;
-    }
-
-    .status.graded {
-      background: #e9f7ef;
-      border-color: #b7dbbf;
-      color: #215b34;
-    }
-
-    .status.pending {
-      background: #fff5df;
-      border-color: #eed39a;
-      color: #775107;
-    }
-
-    .status.partial {
-      background: #f2f4f3;
-      border-color: #cfd7d3;
-      color: #445551;
-    }
-
-    .compare-grid {
-      display: grid;
-      gap: 10px;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .metric-box {
-      border: 1px solid #dce4e0;
-      border-radius: 10px;
-      background: #fdfdfc;
-      padding: 9px 10px;
-      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
       gap: 8px;
     }
-
-    .metric-title {
-      margin: 0;
-      font-size: 0.76rem;
-      color: #50615c;
-      text-transform: uppercase;
-      letter-spacing: 0.3px;
-      font-weight: 700;
+    label { display: grid; gap: 5px; font-size: 0.87rem; color: #394440; }
+    input[type="text"], select {
+      border: 1px solid #bcc9c2; border-radius: 10px; padding: 9px 10px;
+      font-size: 0.9rem; background: #fff; color: var(--ink); outline: none; width: 100%;
+    }
+    input[type="text"]:focus, select:focus {
+      border-color: #5aa495;
+      box-shadow: 0 0 0 2px rgba(51, 129, 112, 0.14);
     }
 
-    .stack {
-      width: 100%;
-      height: 12px;
-      border-radius: 999px;
-      overflow: hidden;
-      display: flex;
-      background: #eef3f0;
+    .button-row { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    button {
+      border: 1px solid #25584f; background: #1d7268; color: #fff;
+      border-radius: 10px; padding: 8px 12px; font-size: 0.86rem;
+      cursor: pointer; transition: transform 140ms ease, box-shadow 140ms ease, background 140ms ease;
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    }
+    button:hover { transform: translateY(-1px); box-shadow: 0 8px 16px rgba(27, 82, 75, 0.2); background: #1a665e; }
+    button.alt { background: #fff; border-color: #bcc9c2; color: #30403a; box-shadow: none; }
+    button.alt:hover { background: #f4f8f6; }
+
+    .score-filter { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+    .score-chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      border-radius: 999px; border: 1px solid #cbd7d1;
+      padding: 6px 9px; font-size: 0.8rem; background: #fff; color: #32403b;
     }
 
-    .seg-2 {
-      background: var(--green);
-      height: 100%;
+    .filter-meta-row { margin-top: 6px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+
+    .small-note { margin-top: 6px; color: #5b6f68; font-size: 0.8rem; }
+
+    .model-visibility-block { margin-top: 8px; border: 1px solid #d2dbd6; border-radius: 10px; background: #fbfcfb; padding: 6px 8px 8px; }
+    .model-visibility-block summary {
+      list-style: none; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+      font-size: 0.82rem; font-weight: 600; color: #32443e; user-select: none;
+    }
+    .model-visibility-block summary::-webkit-details-marker { display: none; }
+    .model-visibility-block summary::before { content: "\25B8"; font-size: 0.8rem; color: #5a736c; transition: transform 120ms ease; }
+    .model-visibility-block[open] summary::before { transform: rotate(90deg); }
+    .model-visibility-inner { margin-top: 6px; display: grid; gap: 6px; }
+
+    .model-toggle-grid {
+      margin-top: 8px; border: 1px solid #d2dbd6; border-radius: 10px; background: #fff;
+      padding: 8px; max-height: 180px; overflow: auto;
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 6px;
+    }
+    .model-toggle-item {
+      display: flex; align-items: center; gap: 8px;
+      border: 1px solid #d4dfda; border-radius: 8px; background: #f8fbfa;
+      padding: 6px 8px; font-size: 0.78rem; color: #25453b;
+    }
+    .model-toggle-item input[type="checkbox"] { width: 15px; height: 15px; margin: 0; accent-color: #1d7268; cursor: pointer; flex: 0 0 auto; }
+    .model-toggle-item.hidden { background: #fbf2f1; color: #7a322c; border-color: #e2c8c4; }
+
+    .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+    .dot.score0 { background: var(--red); }
+    .dot.score1 { background: var(--amber); }
+    .dot.score2 { background: var(--green); }
+
+    /* Org chips */
+    .org-dot {
+      width: 9px; height: 9px; border-radius: 50%; display: inline-block;
+      box-shadow: inset 0 0 0 1px rgba(0,0,0,0.14); flex: 0 0 auto;
     }
 
-    .seg-1 {
-      background: var(--amber);
-      height: 100%;
+    /* Stacked bar chart */
+    .stack-row {
+      display: grid;
+      grid-template-columns: 34px minmax(170px, 260px) 1fr;
+      grid-template-areas: "rank name bar";
+      gap: 8px; align-items: center;
+      border-radius: 10px;
+      padding: 3px 6px;
     }
-
-    .seg-0 {
-      background: var(--red);
-      height: 100%;
+    .stack-rank { grid-area: rank; text-align: right; font-size: 0.8rem; font-weight: 700; color: #5b6c66; }
+    .stack-row .name { grid-area: name; }
+    .stack-row .name.main-chart-name { display: inline-flex; align-items: center; gap: 7px; }
+    .stack-row .stack-track { grid-area: bar; }
+    .stack-track {
+      width: 100%; height: 20px; border-radius: 999px; overflow: hidden;
+      display: flex; border: 1px solid #d1dad5; background: #edf3f0;
     }
-
-    .seg-e {
-      background: var(--error);
-      height: 100%;
+    .stack-seg {
+      height: 100%; display: flex; align-items: center; justify-content: center;
+      overflow: hidden; white-space: nowrap; font-size: 0.68rem; font-weight: 700;
+      color: #fff; cursor: pointer; transition: filter 120ms ease;
     }
+    .stack-seg:hover { filter: brightness(0.95); }
+    .stack-seg.green { background: var(--green); }
+    .stack-seg.amber { background: var(--amber); }
+    .stack-seg.red { background: var(--red); }
+    .stack-seg.error { background: var(--error); }
+    .seg-label { display: inline-block; padding: 0 4px; text-shadow: 0 1px 1px rgba(0,0,0,0.35); }
 
-    .metric-line {
-      margin: 0;
-      font-size: 0.83rem;
-      color: #3e4f4a;
+    .muted { color: var(--muted); font-size: 0.83rem; }
+
+    @media (max-width: 900px) {
+      .stack-row { grid-template-columns: 34px 1fr; grid-template-areas: "rank name" "bar bar"; }
+      .hero-subtitle { white-space: normal; }
     }
-
-    .delta-strip {
-      margin-top: 2px;
-      display: flex;
-      gap: 7px;
-      flex-wrap: wrap;
+    @media (max-width: 640px) {
+      .page { width: 100%; margin: 10px 0 24px; gap: 12px; }
+      .hero { border-radius: 0; padding: 14px 12px; }
+      .panel { border-radius: 12px; padding: 12px; }
     }
-
-    .delta-pill {
-      font-size: 0.75rem;
-      font-weight: 700;
-      border-radius: 999px;
-      padding: 4px 8px;
-      border: 1px solid;
-      white-space: nowrap;
-    }
-
-    .delta-pill.up {
-      background: #e7f7ed;
-      border-color: #b8ddc2;
-      color: #206234;
-    }
-
-    .delta-pill.down {
-      background: #fdeeee;
-      border-color: #efc4c1;
-      color: #872f29;
-    }
-
-    .delta-pill.flat {
-      background: #f2f5f4;
-      border-color: #d9e1de;
-      color: #4f615c;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 10px;
-      font-size: 0.84rem;
-      background: #fff;
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      overflow: hidden;
-    }
-
-    th,
-    td {
-      padding: 9px 10px;
-      border-bottom: 1px solid #e6ece9;
-      text-align: left;
-      vertical-align: top;
-    }
-
-    th {
-      font-size: 0.74rem;
-      letter-spacing: 0.3px;
-      text-transform: uppercase;
-      color: #4e5f5a;
-      background: #f7faf8;
-    }
-
-    tr:last-child td {
-      border-bottom: none;
-    }
-
-    .muted {
-      color: var(--muted);
-      font-size: 0.83rem;
-    }
-
-    .foot {
-      color: #5e6f69;
-      font-size: 0.78rem;
-      margin-top: 2px;
-    }
-
-    @media (max-width: 860px) {
-      .compare-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .hero {
-        padding: 16px;
-      }
-
-      .hero-logo {
-        width: 66px;
-      }
-    }
-
-    @keyframes fade-up {
-      from {
-        opacity: 0;
-        transform: translateY(8px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
+    @keyframes fade-up { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
   </style>
 </head>
 <body>
@@ -401,55 +247,70 @@
     </section>
 
     <section class="panel">
-      <h2>Snapshot (March 4, 2026)</h2>
-      <p class="panel-subtle">Published baseline comes from <code>data/v2/latest/leaderboard_with_launch.csv</code>. Third-party runs were collected with prefix: <code>A third party asked the following question.</code></p>
-      <div class="kpis">
-        <article class="kpi">
-          <p class="kpi-label">Total Responses Collected</p>
-          <p class="kpi-value">800</p>
-          <p class="kpi-hint">Across 6 targeted model configurations</p>
-        </article>
-        <article class="kpi">
-          <p class="kpi-label">Runs Fully Graded</p>
-          <p class="kpi-value">5 / 6</p>
-          <p class="kpi-hint">Plus 1 partial panel (credit-limited)</p>
-        </article>
-        <article class="kpi">
-          <p class="kpi-label">Mean Green Lift (Complete)</p>
-          <p class="kpi-value">+10 pp</p>
-          <p class="kpi-hint">Across 5 fully graded model rows</p>
-        </article>
-        <article class="kpi">
-          <p class="kpi-label">Collection Spend</p>
-          <p class="kpi-value">$7.962</p>
-          <p class="kpi-hint">All third-party collection runs combined</p>
-        </article>
+      <h2>Filters</h2>
+      <div class="filters-grid">
+        <label>
+          <span>Benchmark Version</span>
+          <select id="datasetVersion">
+            <option value="v2-third-party">v2-third-party</option>
+          </select>
+        </label>
+        <label>
+          <span>Search</span>
+          <input id="filterQuery" type="text" placeholder="Model name or id...">
+        </label>
+        <label>
+          <span>Org</span>
+          <select id="filterOrg"></select>
+        </label>
+        <label>
+          <span>Reasoning</span>
+          <select id="filterReasoning"></select>
+        </label>
+        <label>
+          <span>Technique</span>
+          <select id="filterTechnique"></select>
+        </label>
+        <label>
+          <span>Domain</span>
+          <select id="filterDomain"></select>
+        </label>
       </div>
+      <div class="filter-meta-row">
+        <span class="small-note">Outcome:</span>
+        <div class="score-filter" id="scoreFilter"></div>
+      </div>
+      <details class="model-visibility-block">
+        <summary>Model visibility</summary>
+        <div class="model-visibility-inner">
+          <label>
+            <span>Search models</span>
+            <input id="filterModelToggleSearch" type="text" placeholder="Search model names...">
+          </label>
+          <div class="button-row">
+            <button id="showAllModelsBtn" class="alt" type="button">Show All</button>
+            <button id="hideAllModelsBtn" class="alt" type="button">Hide All</button>
+            <button id="clearFiltersBtn" class="alt" type="button">Reset All Filters</button>
+          </div>
+          <div id="modelToggleGrid" class="model-toggle-grid"></div>
+        </div>
+      </details>
+      <p class="small-note" id="dataState"></p>
     </section>
 
     <section class="panel">
-      <h2>Effect Comparison</h2>
-      <p class="panel-subtle">Green = clear pushback (score 2), Amber = partial challenge (score 1), Red = accepted nonsense (score 0).</p>
-      <div class="rows" id="comparisonRows"></div>
-    </section>
-
-    <section class="panel">
-      <h2>Collection Footprint (Pending + Completed)</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>Model</th>
-            <th>Run ID</th>
-            <th>Rows</th>
-            <th>Cost</th>
-            <th>Avg Tokens</th>
-            <th>Avg Latency</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody id="footprintRows"></tbody>
-      </table>
-      <p class="foot">All rows are graded; one run is partial because judge calls were interrupted by OpenRouter credit exhaustion.</p>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:4px;">
+        <div>
+          <h2 style="margin:0;">Detection Rate by Model</h2>
+          <p class="subtle" style="margin-top:2px;">Baseline and 3rd-Party formulations are listed as separate rows, grouped together by model for direct visual comparison.</p>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <span class="score-chip"><span class="dot score2"></span>Clear Pushback</span>
+          <span class="score-chip"><span class="dot score1"></span>Partial Challenge</span>
+          <span class="score-chip"><span class="dot score0"></span>Accepted Nonsense</span>
+        </div>
+      </div>
+      <div id="simpleModelBars" style="display:grid;gap:6px;"></div>
     </section>
   </main>
 
@@ -556,136 +417,381 @@
         }
       },
       {
-        label: "OpenAI GPT-5.2 (none, robustness n=3)",
+        label: "OpenAI GPT-5.2 (none, run 1)",
         modelRow: "openai/gpt-5.2@reasoning=none",
         baseline: { avg: 1.10, green: 0.38, amber: 0.39, red: 0.23, error: 0 },
         thirdParty: {
-          status: "graded_partial",
-          avg: 1.2702,
-          green: 0.5085,
-          amber: 0.322,
-          red: 0.1695,
+          status: "graded_complete",
+          avg: 1.1983,
+          green: 0.45,
+          amber: 0.38,
+          red: 0.17,
           error: 0,
-          scoredCount: 177,
+          scoredCount: 100,
           runId: "run_v2_gpt52_thirdparty_n3_20260303",
-          rowCount: 300,
-          rowErrorCount: 246,
-          cost: 3.646531,
-          avgTokens: 922.1333,
-          avgLatencyMs: 17993.83
+          rowCount: 100,
+          rowErrorCount: 47,
+          cost: 1.234268,
+          avgTokens: 935.66,
+          avgLatencyMs: 18317.47
         }
       }
     ];
 
-    const comparisonRows = document.getElementById("comparisonRows");
-    const footprintRows = document.getElementById("footprintRows");
+    const ORG_COLORS = {
+      openai: "#5b8def",
+      anthropic: "#f08b42",
+      google: "#44a85a",
+      unknown: "#7b8a84"
+    };
+    const SOURCE_ORDER = { baseline: 0, third_party: 1 };
+
+    const el = {
+      datasetVersion: document.getElementById("datasetVersion"),
+      filterQuery: document.getElementById("filterQuery"),
+      filterOrg: document.getElementById("filterOrg"),
+      filterReasoning: document.getElementById("filterReasoning"),
+      filterTechnique: document.getElementById("filterTechnique"),
+      filterDomain: document.getElementById("filterDomain"),
+      scoreFilter: document.getElementById("scoreFilter"),
+      filterModelToggleSearch: document.getElementById("filterModelToggleSearch"),
+      showAllModelsBtn: document.getElementById("showAllModelsBtn"),
+      hideAllModelsBtn: document.getElementById("hideAllModelsBtn"),
+      modelToggleGrid: document.getElementById("modelToggleGrid"),
+      clearFiltersBtn: document.getElementById("clearFiltersBtn"),
+      dataState: document.getElementById("dataState"),
+      simpleModelBars: document.getElementById("simpleModelBars")
+    };
+
+    const state = {
+      rows: [],
+      hiddenModels: new Set()
+    };
+
+    function escapeHtml(value) {
+      return String(value || "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll("\"", "&quot;")
+        .replaceAll("'", "&#39;");
+    }
 
     function pct(value) {
-      return `${(value * 100).toFixed(1)}%`;
+      return `${(Number(value || 0) * 100).toFixed(1)}%`;
     }
 
-    function deltaFmt(value, pctMode = false) {
-      if (value === null || value === undefined) {
-        return "n/a";
-      }
-      if (pctMode) {
-        const pp = value * 100;
-        const sign = pp > 0 ? "+" : "";
-        return `${sign}${pp.toFixed(1)} pp`;
-      }
-      const sign = value > 0 ? "+" : "";
-      return `${sign}${value.toFixed(4)}`;
+    function uniqSorted(values) {
+      return [...new Set(values.filter((value) => String(value || "").length > 0))]
+        .sort((a, b) => String(a).localeCompare(String(b)));
     }
 
-    function pillClass(delta, invert = false) {
-      if (Math.abs(delta) < 0.00001) {
-        return "flat";
-      }
-      if (invert) {
-        return delta < 0 ? "up" : "down";
-      }
-      return delta > 0 ? "up" : "down";
+    function fillSelect(selectEl, values) {
+      const normalized = values.filter((value) => String(value) !== "all");
+      const opts = ['<option value="all">all</option>']
+        .concat(normalized.map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`));
+      selectEl.innerHTML = opts.join("");
+      selectEl.value = "all";
     }
 
-    function stackHTML(data) {
-      const error = data.error || 0;
-      return `
-        <div class="stack" aria-label="score distribution">
-          <span class="seg-2" style="width:${data.green * 100}%"></span>
-          <span class="seg-1" style="width:${data.amber * 100}%"></span>
-          <span class="seg-0" style="width:${data.red * 100}%"></span>
-          <span class="seg-e" style="width:${error * 100}%"></span>
-        </div>
-        <p class="metric-line">Green ${pct(data.green)} · Amber ${pct(data.amber)} · Red ${pct(data.red)}${error > 0 ? ` · Unscored ${pct(error)}` : ""}</p>
-      `;
+    function parseOrg(modelRow) {
+      const [org] = String(modelRow || "").split("/", 1);
+      return org || "unknown";
     }
 
-    for (const item of modelRows) {
-      const isComplete = item.thirdParty.status === "graded_complete";
-      const isPartial = item.thirdParty.status === "graded_partial";
-      const isGraded = isComplete || isPartial;
-      if (isPartial) {
-        item.thirdParty.error = 1 - (item.thirdParty.scoredCount / item.thirdParty.rowCount);
+    function parseReasoning(modelRow) {
+      const match = String(modelRow || "").match(/@reasoning=([^@]+)/);
+      return match ? match[1] : "unknown";
+    }
+
+    function orgColor(org) {
+      return ORG_COLORS[org] || "#7b8a84";
+    }
+
+    function dominantOutcome(stats) {
+      const buckets = [
+        ["green", Number(stats.green || 0)],
+        ["amber", Number(stats.amber || 0)],
+        ["red", Number(stats.red || 0)]
+      ];
+      buckets.sort((a, b) => b[1] - a[1]);
+      return buckets[0][0];
+    }
+
+    function normalizeStats(raw) {
+      return {
+        avg: Number(raw.avg || 0),
+        green: Number(raw.green || 0),
+        amber: Number(raw.amber || 0),
+        red: Number(raw.red || 0),
+        error: Number(raw.error || 0)
+      };
+    }
+
+    function segmentLabel(percent) {
+      if (percent >= 10) {
+        return `${percent.toFixed(1)}%`;
       }
+      if (percent >= 3) {
+        return `${Math.round(percent)}%`;
+      }
+      return "";
+    }
 
-      const row = document.createElement("article");
-      row.className = "row";
+    function buildRows() {
+      const rows = [];
+      for (const item of modelRows) {
+        const baseline = normalizeStats(item.baseline);
+        const thirdParty = normalizeStats(item.thirdParty);
+        const thirdStatus = String(item.thirdParty.status || "graded_complete");
+        const thirdRowCount = Number(item.thirdParty.rowCount || 0);
+        const thirdScoredCount = Number(item.thirdParty.scoredCount || 0);
+        if (thirdStatus === "graded_partial" && thirdRowCount > 0) {
+          thirdParty.error = 1 - (thirdScoredCount / thirdRowCount);
+        }
 
-      const top = document.createElement("div");
-      top.className = "row-top";
-      top.innerHTML = `
-        <div>
-          <p class="model-name">${item.label}</p>
-          <p class="muted">${item.modelRow}</p>
-        </div>
-        <span class="status ${isComplete ? "graded" : isPartial ? "partial" : "pending"}">${isComplete ? "Graded" : isPartial ? "Graded (partial)" : "Collected, grading pending"}</span>
-      `;
-      row.appendChild(top);
+        const org = parseOrg(item.modelRow);
+        const reasoning = parseReasoning(item.modelRow);
+        rows.push({
+          id: `${item.modelRow}__baseline`,
+          modelKey: item.modelRow,
+          baseLabel: item.label,
+          label: item.label,
+          source: "baseline",
+          sourceLabel: "Baseline",
+          modelRow: item.modelRow,
+          runId: "published-v2-baseline",
+          org,
+          reasoning,
+          technique: "all",
+          domain: "all",
+          stats: baseline,
+          dominant: dominantOutcome(baseline)
+        });
+        rows.push({
+          id: `${item.modelRow}__third_party`,
+          modelKey: item.modelRow,
+          baseLabel: item.label,
+          label: item.label,
+          source: "third_party",
+          sourceLabel: "3rd Party",
+          modelRow: item.modelRow,
+          runId: item.thirdParty.runId,
+          org,
+          reasoning,
+          technique: "all",
+          domain: "all",
+          stats: thirdParty,
+          dominant: dominantOutcome(thirdParty)
+        });
+      }
+      return rows;
+    }
 
-      const grid = document.createElement("div");
-      grid.className = "compare-grid";
-      grid.innerHTML = `
-        <section class="metric-box">
-          <p class="metric-title">Baseline (Published v2)</p>
-          ${stackHTML(item.baseline)}
-        </section>
-        <section class="metric-box">
-          <p class="metric-title">Third-Party Formulation</p>
-          ${isGraded ? stackHTML(item.thirdParty) : `<p class="metric-line">Responses collected (${item.thirdParty.rowCount} rows). Awaiting panel grading.</p>`}
-          ${isPartial ? `<p class="metric-line">Coverage: ${item.thirdParty.scoredCount}/${item.thirdParty.rowCount} scored rows (${pct(item.thirdParty.scoredCount / item.thirdParty.rowCount)}), row errors: ${item.thirdParty.rowErrorCount}</p>` : ""}
-        </section>
-      `;
-      row.appendChild(grid);
+    function selectedOutcomeSet() {
+      const checks = [...el.scoreFilter.querySelectorAll('input[name="scoreFilter"]:checked')];
+      return new Set(checks.map((node) => String(node.value)));
+    }
 
-      const deltas = document.createElement("div");
-      deltas.className = "delta-strip";
-      if (isGraded) {
-        const deltaGreen = item.thirdParty.green - item.baseline.green;
-        const deltaRed = item.thirdParty.red - item.baseline.red;
-        deltas.innerHTML = `
-          <span class="delta-pill ${pillClass(deltaGreen)}">Green ${deltaFmt(deltaGreen, true)}</span>
-          <span class="delta-pill ${pillClass(deltaRed, true)}">Red ${deltaFmt(deltaRed, true)}</span>
-          ${isPartial ? `<span class="delta-pill flat">Partial scoring; interpret with caution</span>` : ""}
+    function buildScoreFilter() {
+      const chips = [
+        { key: "green", label: "Clear Pushback", dotClass: "score2" },
+        { key: "amber", label: "Partial Challenge", dotClass: "score1" },
+        { key: "red", label: "Accepted Nonsense", dotClass: "score0" }
+      ];
+      el.scoreFilter.innerHTML = chips.map((chip) => `
+        <label class="score-chip">
+          <input type="checkbox" name="scoreFilter" value="${chip.key}" checked>
+          <span class="dot ${chip.dotClass}"></span>
+          <span>${chip.label}</span>
+        </label>
+      `).join("");
+    }
+
+    function applyFilters(rows) {
+      const query = String(el.filterQuery.value || "").trim().toLowerCase();
+      const org = String(el.filterOrg.value || "all");
+      const reasoning = String(el.filterReasoning.value || "all");
+      const technique = String(el.filterTechnique.value || "all");
+      const domain = String(el.filterDomain.value || "all");
+      const outcomes = selectedOutcomeSet();
+
+      return rows.filter((row) => {
+        if (state.hiddenModels.has(row.modelKey)) {
+          return false;
+        }
+        if (org !== "all" && row.org !== org) {
+          return false;
+        }
+        if (reasoning !== "all" && row.reasoning !== reasoning) {
+          return false;
+        }
+        if (technique !== "all" && row.technique !== technique) {
+          return false;
+        }
+        if (domain !== "all" && row.domain !== domain) {
+          return false;
+        }
+        if (query) {
+          const hay = `${row.label} ${row.modelRow} ${row.sourceLabel}`.toLowerCase();
+          if (!hay.includes(query)) {
+            return false;
+          }
+        }
+        if (!outcomes.has(row.dominant)) {
+          return false;
+        }
+        return true;
+      });
+    }
+
+    function getModelInfos(rows) {
+      const map = new Map();
+      for (const row of rows) {
+        if (!map.has(row.modelKey)) {
+          map.set(row.modelKey, {
+            key: row.modelKey,
+            label: row.baseLabel,
+            org: row.org
+          });
+        }
+      }
+      return [...map.values()].sort((a, b) => a.label.localeCompare(b.label));
+    }
+
+    function renderModelToggleGrid() {
+      const infos = getModelInfos(state.rows);
+      const query = String(el.filterModelToggleSearch.value || "").trim().toLowerCase();
+      const visible = infos.filter((info) => {
+        if (!query) {
+          return true;
+        }
+        return `${info.label} ${info.key}`.toLowerCase().includes(query);
+      });
+
+      el.modelToggleGrid.innerHTML = visible.map((info) => {
+        const checked = !state.hiddenModels.has(info.key);
+        const hiddenClass = checked ? "" : " hidden";
+        const id = `model_toggle_${info.key.replace(/[^a-zA-Z0-9]+/g, "_")}`;
+        return `
+          <label class="model-toggle-item${hiddenClass}" for="${escapeHtml(id)}">
+            <input id="${escapeHtml(id)}" type="checkbox" data-model-key="${escapeHtml(info.key)}" ${checked ? "checked" : ""}>
+            <span>${escapeHtml(info.label)}</span>
+          </label>
         `;
-      } else {
-        deltas.innerHTML = `<span class="delta-pill flat">Pushback deltas will appear after grading.</span>`;
-      }
-      row.appendChild(deltas);
+      }).join("");
 
-      comparisonRows.appendChild(row);
-
-      const footprint = document.createElement("tr");
-      footprint.innerHTML = `
-        <td>${item.label}</td>
-        <td><code>${item.thirdParty.runId}</code></td>
-        <td>${item.thirdParty.rowCount}</td>
-        <td>$${item.thirdParty.cost.toFixed(6)}</td>
-        <td>${item.thirdParty.avgTokens.toFixed(2)}</td>
-        <td>${(item.thirdParty.avgLatencyMs / 1000).toFixed(2)}s</td>
-        <td>${isComplete ? "graded" : isPartial ? "graded (partial, credit-limited)" : "pending grade-panel"}</td>
-      `;
-      footprintRows.appendChild(footprint);
     }
+
+    function renderTrack(stats) {
+      const greenPct = Number(stats.green || 0) * 100;
+      const amberPct = Number(stats.amber || 0) * 100;
+      const redPct = Number(stats.red || 0) * 100;
+      const errorPct = Number(stats.error || 0) * 100;
+      return `
+        <div class="stack-track">
+          <span class="stack-seg green" style="width:${greenPct.toFixed(3)}%;"><span class="seg-label">${escapeHtml(segmentLabel(greenPct))}</span></span>
+          <span class="stack-seg amber" style="width:${amberPct.toFixed(3)}%;"><span class="seg-label">${escapeHtml(segmentLabel(amberPct))}</span></span>
+          <span class="stack-seg red" style="width:${redPct.toFixed(3)}%;"><span class="seg-label">${escapeHtml(segmentLabel(redPct))}</span></span>
+          <span class="stack-seg error" style="width:${errorPct.toFixed(3)}%;"><span class="seg-label">${escapeHtml(segmentLabel(errorPct))}</span></span>
+        </div>
+      `;
+    }
+
+    function renderRows(rows) {
+      if (!rows.length) {
+        el.simpleModelBars.innerHTML = `<p class="subtle">No model rows match the current filters.</p>`;
+        return;
+      }
+
+      const sorted = [...rows].sort((a, b) => (
+        a.baseLabel.localeCompare(b.baseLabel)
+        || SOURCE_ORDER[a.source] - SOURCE_ORDER[b.source]
+      ));
+
+      el.simpleModelBars.innerHTML = sorted.map((row, idx) => {
+        return `
+          <div class="stack-row">
+            <div class="stack-rank">${idx + 1}</div>
+            <div class="name main-chart-name"><span class="org-dot" style="background:${escapeHtml(orgColor(row.org))};"></span><span>${escapeHtml(row.label)} · ${escapeHtml(row.sourceLabel)}</span></div>
+            ${renderTrack(row.stats)}
+          </div>
+        `;
+      }).join("");
+    }
+
+    function render() {
+      const filtered = applyFilters(state.rows);
+      el.dataState.textContent = `Showing ${filtered.length} of ${state.rows.length} model rows.`;
+      renderModelToggleGrid();
+      renderRows(filtered);
+    }
+
+    function resetFilters() {
+      el.datasetVersion.value = "v2-third-party";
+      el.filterQuery.value = "";
+      el.filterOrg.value = "all";
+      el.filterReasoning.value = "all";
+      el.filterTechnique.value = "all";
+      el.filterDomain.value = "all";
+      el.filterModelToggleSearch.value = "";
+      state.hiddenModels = new Set();
+      [...el.scoreFilter.querySelectorAll('input[name="scoreFilter"]')].forEach((node) => {
+        node.checked = true;
+      });
+      render();
+    }
+
+    function init() {
+      state.rows = buildRows();
+      el.datasetVersion.disabled = true;
+
+      fillSelect(el.filterOrg, uniqSorted(state.rows.map((row) => row.org)));
+      fillSelect(el.filterReasoning, uniqSorted(state.rows.map((row) => row.reasoning)));
+      fillSelect(el.filterTechnique, []);
+      fillSelect(el.filterDomain, []);
+      buildScoreFilter();
+
+      const events = ["input", "change"];
+      for (const type of events) {
+        el.filterQuery.addEventListener(type, render);
+        el.filterOrg.addEventListener(type, render);
+        el.filterReasoning.addEventListener(type, render);
+        el.filterTechnique.addEventListener(type, render);
+        el.filterDomain.addEventListener(type, render);
+      }
+      el.filterModelToggleSearch.addEventListener("input", render);
+      el.scoreFilter.addEventListener("change", render);
+      el.modelToggleGrid.addEventListener("change", (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLInputElement)) {
+          return;
+        }
+        const modelKey = String(target.getAttribute("data-model-key") || "");
+        if (!modelKey) {
+          return;
+        }
+        if (target.checked) {
+          state.hiddenModels.delete(modelKey);
+        } else {
+          state.hiddenModels.add(modelKey);
+        }
+        render();
+      });
+      el.showAllModelsBtn.addEventListener("click", () => {
+        state.hiddenModels = new Set();
+        render();
+      });
+      el.hideAllModelsBtn.addEventListener("click", () => {
+        state.hiddenModels = new Set(getModelInfos(state.rows).map((info) => info.key));
+        render();
+      });
+      el.clearFiltersBtn.addEventListener("click", resetFilters);
+
+      render();
+    }
+
+    init();
   </script>
 </body>
 </html>
