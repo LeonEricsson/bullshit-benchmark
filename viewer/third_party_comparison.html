@@ -401,27 +401,27 @@
     </section>
 
     <section class="panel">
-      <h2>Snapshot (March 3, 2026)</h2>
+      <h2>Snapshot (March 4, 2026)</h2>
       <p class="panel-subtle">Published baseline comes from <code>data/v2/latest/leaderboard_with_launch.csv</code>. Third-party runs were collected with prefix: <code>A third party asked the following question.</code></p>
       <div class="kpis">
         <article class="kpi">
           <p class="kpi-label">Total Responses Collected</p>
-          <p class="kpi-value">600</p>
-          <p class="kpi-hint">Across 4 targeted model configurations</p>
+          <p class="kpi-value">800</p>
+          <p class="kpi-hint">Across 6 targeted model configurations</p>
         </article>
         <article class="kpi">
           <p class="kpi-label">Runs Fully Graded</p>
-          <p class="kpi-value">3 / 4</p>
+          <p class="kpi-value">5 / 6</p>
           <p class="kpi-hint">Plus 1 partial panel (credit-limited)</p>
         </article>
         <article class="kpi">
           <p class="kpi-label">Mean Green Lift (Complete)</p>
           <p class="kpi-value">+10 pp</p>
-          <p class="kpi-hint">Across 3 fully graded model rows</p>
+          <p class="kpi-hint">Across 5 fully graded model rows</p>
         </article>
         <article class="kpi">
           <p class="kpi-label">Collection Spend</p>
-          <p class="kpi-value">$5.703</p>
+          <p class="kpi-value">$7.962</p>
           <p class="kpi-hint">All third-party collection runs combined</p>
         </article>
       </div>
@@ -513,6 +513,46 @@
           cost: 0.530811,
           avgTokens: 409.85,
           avgLatencyMs: 10445.87
+        }
+      },
+      {
+        label: "OpenAI GPT-5.3 Chat (default)",
+        modelRow: "openai/gpt-5.3-chat@reasoning=default",
+        baseline: { avg: 1.06, green: 0.40, amber: 0.29, red: 0.31, error: 0 },
+        thirdParty: {
+          status: "graded_complete",
+          avg: 1.24,
+          green: 0.48,
+          amber: 0.31,
+          red: 0.21,
+          error: 0,
+          scoredCount: 100,
+          runId: "run_v2_gpt53chat_thirdparty_20260304",
+          rowCount: 100,
+          rowErrorCount: 1,
+          cost: 0.6649055,
+          avgTokens: 528.78,
+          avgLatencyMs: 6688.8
+        }
+      },
+      {
+        label: "Google Gemini 3.1 Pro Preview (low)",
+        modelRow: "google/gemini-3.1-pro-preview@reasoning=low",
+        baseline: { avg: 1.0467, green: 0.37, amber: 0.32, red: 0.31, error: 0 },
+        thirdParty: {
+          status: "graded_complete",
+          avg: 1.1867,
+          green: 0.48,
+          amber: 0.25,
+          red: 0.27,
+          error: 0,
+          scoredCount: 100,
+          runId: "run_v2_gemini31pro_low_thirdparty_20260304_b",
+          rowCount: 100,
+          rowErrorCount: 0,
+          cost: 1.593722,
+          avgTokens: 1377.31,
+          avgLatencyMs: 18753.26
         }
       },
       {
