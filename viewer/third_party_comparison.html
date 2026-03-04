@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>BullshitBench v2 - Third-Party Prompt Comparison</title>
+  <title>BullshitBench v2 - Third-Party Framing Experiment</title>
   <link rel="icon" href="../docs/images/bsbench.png">
   <style>
     :root {
@@ -216,6 +216,18 @@
     .stack-seg.error { background: var(--error); }
     .seg-label { display: inline-block; padding: 0 4px; text-shadow: 0 1px 1px rgba(0,0,0,0.35); }
 
+    .source-tag {
+      display: inline-flex; align-items: center;
+      border-radius: 4px; padding: 1px 5px;
+      font-size: 0.64rem; font-weight: 700; letter-spacing: 0.3px;
+      text-transform: uppercase; line-height: 1.1; white-space: nowrap; flex: 0 0 auto;
+    }
+    .source-tag.tp { background: #e0f3ed; color: #176049; border: 1px solid #a8d5c2; }
+    .source-tag.bl { background: #f0f2f1; color: #5b6c66; border: 1px solid #d0d8d4; }
+
+    .stack-row.is-baseline { opacity: 0.52; margin-bottom: 12px; }
+    .stack-row.is-baseline:hover { opacity: 0.78; }
+
     .muted { color: var(--muted); font-size: 0.83rem; }
 
     @media (max-width: 900px) {
@@ -236,14 +248,21 @@
       <div class="hero-left">
         <img class="hero-logo" src="../docs/images/bsbench.png" alt="BullshitBench logo">
         <div>
-          <h1>Third-Party Question Framing Comparison</h1>
-          <p class="hero-subtitle">A/B tracking for prepending a neutral third-party line before each benchmark question, compared against published v2 baselines.</p>
+          <h1>Third-Party Framing Experiment</h1>
+          <p class="hero-subtitle">Prompt framing experiment: does attributing the question to a third party change how models handle nonsense?</p>
         </div>
       </div>
       <div class="hero-actions">
         <a class="hero-link" href="index.v2.html">Open v2 Explorer</a>
         <a class="hero-link" href="../README.md">Methodology</a>
       </div>
+    </section>
+
+    <section class="panel">
+      <h2>About This Experiment</h2>
+      <p class="subtle" style="max-width:900px;line-height:1.55;">In the standard BullshitBench v2 benchmark, each nonsense question is sent directly to the model as the user message. In this experiment, the same 100 questions are re-run with a single line prepended:</p>
+      <p style="margin:10px 0;padding:8px 12px;border-left:3px solid var(--teal);background:#f2faf7;font-size:0.88rem;color:#1d3d36;border-radius:0 8px 8px 0;"><em>"A third party asked the following question."</em></p>
+      <p class="subtle" style="max-width:900px;line-height:1.55;">This reframes the model's role from answering its own user to evaluating someone else's question. The hypothesis is that models are more willing to push back on nonsense when the question is attributed to an external party, since they are no longer at risk of directly contradicting or offending their user. Each model below is shown twice: <strong>3P</strong> (third-party framing) and <strong>BL</strong> (baseline, identical to the published v2 result).</p>
     </section>
 
     <section class="panel">
@@ -299,15 +318,21 @@
     </section>
 
     <section class="panel">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:4px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:20px;">
         <div>
           <h2 style="margin:0;">Detection Rate by Model</h2>
           <p class="subtle" style="margin-top:2px;">Baseline and 3rd-Party formulations are listed as separate rows, grouped together by model for direct visual comparison.</p>
         </div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;">
-          <span class="score-chip"><span class="dot score2"></span>Clear Pushback</span>
-          <span class="score-chip"><span class="dot score1"></span>Partial Challenge</span>
-          <span class="score-chip"><span class="dot score0"></span>Accepted Nonsense</span>
+        <div style="display:grid;gap:6px;justify-items:end;">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <span class="score-chip"><span class="dot score2"></span>Clear Pushback</span>
+            <span class="score-chip"><span class="dot score1"></span>Partial Challenge</span>
+            <span class="score-chip"><span class="dot score0"></span>Accepted Nonsense</span>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center;font-size:0.78rem;color:#4a5f58;">
+            <span style="display:inline-flex;align-items:center;gap:5px;"><span class="source-tag tp">3P</span> Third-party framing</span>
+            <span style="display:inline-flex;align-items:center;gap:5px;"><span class="source-tag bl">BL</span> Baseline (v2 published)</span>
+          </div>
         </div>
       </div>
       <div id="simpleModelBars" style="display:grid;gap:6px;"></div>
@@ -317,7 +342,7 @@
   <script>
     const modelRows = [
       {
-        label: "OpenAI GPT-5.2 Chat (default)",
+        label: "GPT-5.2 Chat",
         modelRow: "openai/gpt-5.2-chat@reasoning=default",
         baseline: { avg: 0.83, green: 0.27, amber: 0.33, red: 0.40, error: 0 },
         thirdParty: {
@@ -337,7 +362,7 @@
         }
       },
       {
-        label: "OpenAI GPT-5.2 Codex (low)",
+        label: "GPT-5.2 Codex (Low)",
         modelRow: "openai/gpt-5.2-codex@reasoning=low",
         baseline: { avg: 1.1367, green: 0.45, amber: 0.26, red: 0.29, error: 0 },
         thirdParty: {
@@ -357,7 +382,7 @@
         }
       },
       {
-        label: "Anthropic Claude Sonnet 4.5 (none)",
+        label: "Claude Sonnet 4.5",
         modelRow: "anthropic/claude-sonnet-4.5@reasoning=none",
         baseline: { avg: 1.59, green: 0.74, amber: 0.13, red: 0.13, error: 0 },
         thirdParty: {
@@ -377,7 +402,7 @@
         }
       },
       {
-        label: "OpenAI GPT-5.3 Chat (default)",
+        label: "GPT-5.3 Chat",
         modelRow: "openai/gpt-5.3-chat@reasoning=default",
         baseline: { avg: 1.06, green: 0.40, amber: 0.29, red: 0.31, error: 0 },
         thirdParty: {
@@ -397,7 +422,7 @@
         }
       },
       {
-        label: "Google Gemini 3.1 Pro Preview (low)",
+        label: "Gemini 3.1 Pro Preview (Low)",
         modelRow: "google/gemini-3.1-pro-preview@reasoning=low",
         baseline: { avg: 1.0467, green: 0.37, amber: 0.32, red: 0.31, error: 0 },
         thirdParty: {
@@ -417,7 +442,7 @@
         }
       },
       {
-        label: "OpenAI GPT-5.2 (none, run 1)",
+        label: "GPT-5.2",
         modelRow: "openai/gpt-5.2@reasoning=none",
         baseline: { avg: 1.10, green: 0.38, amber: 0.39, red: 0.23, error: 0 },
         thirdParty: {
@@ -444,7 +469,7 @@
       google: "#44a85a",
       unknown: "#7b8a84"
     };
-    const SOURCE_ORDER = { baseline: 0, third_party: 1 };
+    const SOURCE_ORDER = { third_party: 0, baseline: 1 };
 
     const el = {
       datasetVersion: document.getElementById("datasetVersion"),
@@ -698,6 +723,11 @@
       `;
     }
 
+    function baselineGreenForModel(rows, modelKey) {
+      const bl = rows.find((r) => r.modelKey === modelKey && r.source === "baseline");
+      return bl ? Number(bl.stats.green || 0) : 0;
+    }
+
     function renderRows(rows) {
       if (!rows.length) {
         el.simpleModelBars.innerHTML = `<p class="subtle">No model rows match the current filters.</p>`;
@@ -705,15 +735,20 @@
       }
 
       const sorted = [...rows].sort((a, b) => (
-        a.baseLabel.localeCompare(b.baseLabel)
+        baselineGreenForModel(rows, b.modelKey) - baselineGreenForModel(rows, a.modelKey)
         || SOURCE_ORDER[a.source] - SOURCE_ORDER[b.source]
       ));
 
       el.simpleModelBars.innerHTML = sorted.map((row, idx) => {
+        const isBaseline = row.source === "baseline";
+        const rowClass = isBaseline ? " is-baseline" : "";
+        const tag = isBaseline
+          ? `<span class="source-tag bl">BL</span>`
+          : `<span class="source-tag tp">3P</span>`;
         return `
-          <div class="stack-row">
+          <div class="stack-row${rowClass}">
             <div class="stack-rank">${idx + 1}</div>
-            <div class="name main-chart-name"><span class="org-dot" style="background:${escapeHtml(orgColor(row.org))};"></span><span>${escapeHtml(row.label)} · ${escapeHtml(row.sourceLabel)}</span></div>
+            <div class="name main-chart-name"><span class="org-dot" style="background:${escapeHtml(orgColor(row.org))};"></span>${tag}<span>${escapeHtml(row.label)}</span></div>
             ${renderTrack(row.stats)}
           </div>
         `;
