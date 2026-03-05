@@ -12,6 +12,8 @@ tmp_*.json
 config.v1.gpt-5.2-chat.json
 config.v2.gpt-5.2-chat.json
 data/v1/
+data/ad_hoc/
 data/model_metadata/open_source_params_sidecar.csv
 readme.preview.html
 drafts/*.html
+side-tests/
