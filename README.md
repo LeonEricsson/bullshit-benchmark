@@ -75,6 +75,16 @@ Reasoning scatter (tokens/cost toggle in the viewer) vs. green rate.
 export OPENROUTER_API_KEY=your_key_here
 ```
 
+Local collection (optional, no API key needed for collect):
+
+```bash
+pip install transformers torch
+python3 scripts/openrouter_benchmark.py collect \
+  --provider local_transformers \
+  --models google/gemma-3-4b-it \
+  --local-batch-size 8
+```
+
 2. Run collection + primary judge (Claude by default):
 
 ```bash

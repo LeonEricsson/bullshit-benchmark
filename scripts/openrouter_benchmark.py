@@ -39,6 +39,13 @@ DEFAULT_RESPONSE_SYSTEM_PROMPT = "You are a helpful assistant."
 DEFAULT_RESPONSE_USER_PREFIX = ""
 EMPTY_MODEL_RESPONSE_PLACEHOLDER = "[Model returned an empty response.]"
 
+COLLECT_PROVIDER_OPENROUTER = "openrouter"
+COLLECT_PROVIDER_LOCAL_TRANSFORMERS = "local_transformers"
+COLLECT_PROVIDER_CHOICES: tuple[str, ...] = (
+    COLLECT_PROVIDER_OPENROUTER,
+    COLLECT_PROVIDER_LOCAL_TRANSFORMERS,
+)
+
 REASONING_EFFORT_ALIASES: dict[str, str] = {
 }
 
@@ -214,6 +221,10 @@ COLLECT_DEFAULTS: dict[str, Any] = {
     "questions": "questions.json",
     "models": "",
     "models_file": "",
+    "provider": COLLECT_PROVIDER_OPENROUTER,
+    "local_batch_size": 8,
+    "local_device": "auto",
+    "local_trust_remote_code": False,
     "output_dir": "runs",
     "run_id": "",
     "num_runs": 1,
@@ -382,6 +393,29 @@ def parse_args() -> argparse.Namespace:
     collect.add_argument("--questions", default="questions.json")
     collect.add_argument("--models", default="")
     collect.add_argument("--models-file", default="")
+    collect.add_argument(
+        "--provider",
+        choices=COLLECT_PROVIDER_CHOICES,
+        default=COLLECT_PROVIDER_OPENROUTER,
+        help="Response provider for collection.",
+    )
+    collect.add_argument(
+        "--local-batch-size",
+        type=int,
+        default=8,
+        help="Batch size for local transformers inference.",
+    )
+    collect.add_argument(
+        "--local-device",
+        choices=["auto", "cpu", "cuda"],
+        default="auto",
+        help="Execution device for local transformers inference.",
+    )
+    collect.add_argument(
+        "--local-trust-remote-code",
+        action="store_true",
+        help="Allow trust_remote_code=True when loading local transformers models.",
+    )
     collect.add_argument("--config", default="config.json")
     collect.add_argument("--output-dir", default="runs")
     collect.add_argument(
@@ -399,7 +433,7 @@ def parse_args() -> argparse.Namespace:
         "--parallelism",
         type=int,
         default=4,
-        help="Concurrent OpenRouter calls during collection.",
+        help="Concurrent collection workers (OpenRouter path).",
     )
     collect.add_argument(
         "--max-inflight-per-model",
@@ -1952,6 +1986,165 @@ class OpenRouterClient:
         raise last_error
 
 
+def build_local_prompt(messages: list[dict[str, str]]) -> str:
+    parts: list[str] = []
+    for message in messages:
+        role = str(message.get("role", "user")).strip().lower()
+        content = normalize_message_content(message.get("content", ""))
+        if not content:
+            continue
+        if role == "system":
+            parts.append(f"System:\n{content}")
+        elif role == "assistant":
+            parts.append(f"Assistant:\n{content}")
+        else:
+            parts.append(f"User:\n{content}")
+    parts.append("Assistant:\n")
+    return "\n\n".join(parts)
+
+
+def extract_local_generated_text(output: Any) -> str:
+    if isinstance(output, list):
+        for item in output:
+            text = extract_local_generated_text(item)
+            if text:
+                return text
+        return ""
+    if isinstance(output, dict):
+        generated = output.get("generated_text")
+        if isinstance(generated, str):
+            return generated.strip()
+        text = output.get("text")
+        if isinstance(text, str):
+            return text.strip()
+    if isinstance(output, str):
+        return output.strip()
+    return ""
+
+
+class LocalTransformersClient:
+    def __init__(
+        self,
+        *,
+        model_id: str,
+        device: str,
+        trust_remote_code: bool,
+    ) -> None:
+        self.model_id = model_id
+        self._device = self._resolve_device(device)
+        try:
+            from transformers import AutoTokenizer, pipeline
+        except ImportError as err:
+            raise RuntimeError(
+                "transformers is required for --provider local_transformers. "
+                "Install with: pip install transformers torch"
+            ) from err
+
+        self._tokenizer = AutoTokenizer.from_pretrained(
+            model_id,
+            trust_remote_code=trust_remote_code,
+        )
+        if (
+            getattr(self._tokenizer, "pad_token_id", None) is None
+            and getattr(self._tokenizer, "eos_token_id", None) is not None
+        ):
+            self._tokenizer.pad_token = self._tokenizer.eos_token
+
+        self._pipeline = pipeline(
+            "text-generation",
+            model=model_id,
+            tokenizer=self._tokenizer,
+            device=self._device,
+            trust_remote_code=trust_remote_code,
+        )
+
+    def _resolve_device(self, device: str) -> int:
+        cleaned = device.strip().lower()
+        if cleaned == "cpu":
+            return -1
+        if cleaned == "cuda":
+            try:
+                import torch
+            except ImportError as err:
+                raise RuntimeError(
+                    "torch is required for --local-device cuda."
+                ) from err
+            if not torch.cuda.is_available():
+                raise RuntimeError("--local-device cuda requested but CUDA is not available.")
+            return 0
+        if cleaned == "auto":
+            try:
+                import torch
+            except ImportError:
+                return -1
+            return 0 if torch.cuda.is_available() else -1
+        raise ValueError("--local-device must be one of: auto, cpu, cuda.")
+
+    def generate_batch(
+        self,
+        *,
+        prompts: list[str],
+        batch_size: int,
+        temperature: float | None,
+        max_new_tokens: int,
+    ) -> list[dict[str, Any]]:
+        if not prompts:
+            return []
+
+        generation_kwargs: dict[str, Any] = {
+            "batch_size": batch_size,
+            "max_new_tokens": max_new_tokens,
+            "return_full_text": False,
+        }
+        if getattr(self._tokenizer, "pad_token_id", None) is not None:
+            generation_kwargs["pad_token_id"] = self._tokenizer.pad_token_id
+        if temperature is not None and temperature > 0:
+            generation_kwargs["do_sample"] = True
+            generation_kwargs["temperature"] = temperature
+        else:
+            generation_kwargs["do_sample"] = False
+
+        generated_raw = self._pipeline(prompts, **generation_kwargs)
+        if not isinstance(generated_raw, list):
+            raise RuntimeError("Local transformers pipeline returned a non-list payload.")
+        if len(generated_raw) != len(prompts):
+            raise RuntimeError(
+                "Local transformers pipeline returned unexpected output length. "
+                f"expected={len(prompts)} actual={len(generated_raw)}"
+            )
+
+        rows: list[dict[str, Any]] = []
+        for prompt, output in zip(prompts, generated_raw):
+            text = extract_local_generated_text(output)
+            usage = {
+                "prompt_tokens": self._token_count(prompt),
+                "completion_tokens": self._token_count(text),
+                "total_tokens": self._token_count(prompt) + self._token_count(text),
+            }
+            rows.append(
+                {
+                    "text": text,
+                    "usage": usage,
+                    "raw": output,
+                }
+            )
+        return rows
+
+    def _token_count(self, text: str) -> int:
+        encoded = self._tokenizer(
+            text,
+            add_special_tokens=False,
+            return_attention_mask=False,
+            return_token_type_ids=False,
+        )
+        token_ids = encoded.get("input_ids", [])
+        if isinstance(token_ids, list):
+            if token_ids and isinstance(token_ids[0], list):
+                return len(token_ids[0])
+            return len(token_ids)
+        return 0
+
+
 def extract_model_text(api_response: dict[str, Any]) -> str:
     if api_response.get("error"):
         err = api_response.get("error")
@@ -2049,31 +2242,15 @@ def build_collect_tasks(
     return tasks
 
 
-def collect_one(
-    task: dict[str, Any],
+def build_collect_record(
     *,
-    client: OpenRouterClient | None,
-    system_prompt: str,
-    user_prefix: str,
-    omit_system_prompt: bool,
-    temperature: float | None,
-    max_tokens: int,
-    empty_response_retries: int,
-    retries: int,
-    pause_seconds: float,
-    dry_run: bool,
+    task: dict[str, Any],
+    question: dict[str, Any],
+    prompt_question: str,
+    request_messages: list[dict[str, str]],
     store_request_messages: bool,
-    store_response_raw: bool,
+    started_at: str | None,
 ) -> dict[str, Any]:
-    question = task["question"]
-    prompt_question = compose_user_question(question["question"], user_prefix)
-    started_at = utc_now_iso()
-    t0 = time.perf_counter()
-    request_messages: list[dict[str, str]] = []
-    if not omit_system_prompt and system_prompt.strip():
-        request_messages.append({"role": "system", "content": system_prompt})
-    request_messages.append({"role": "user", "content": prompt_question})
-
     reasoning_effort = task.get("response_reasoning_effort")
     effort_value = (
         str(reasoning_effort).strip()
@@ -2127,6 +2304,43 @@ def collect_one(
         "error": "",
     }
     enrich_collect_record_metrics(record)
+    return record
+
+
+def collect_one(
+    task: dict[str, Any],
+    *,
+    client: OpenRouterClient | None,
+    system_prompt: str,
+    user_prefix: str,
+    omit_system_prompt: bool,
+    temperature: float | None,
+    max_tokens: int,
+    empty_response_retries: int,
+    retries: int,
+    pause_seconds: float,
+    dry_run: bool,
+    store_request_messages: bool,
+    store_response_raw: bool,
+) -> dict[str, Any]:
+    question = task["question"]
+    prompt_question = compose_user_question(question["question"], user_prefix)
+    started_at = utc_now_iso()
+    t0 = time.perf_counter()
+    request_messages: list[dict[str, str]] = []
+    if not omit_system_prompt and system_prompt.strip():
+        request_messages.append({"role": "system", "content": system_prompt})
+    request_messages.append({"role": "user", "content": prompt_question})
+
+    record = build_collect_record(
+        task=task,
+        question=question,
+        prompt_question=prompt_question,
+        request_messages=request_messages,
+        store_request_messages=store_request_messages,
+        started_at=started_at,
+    )
+    effort_value = record.get("response_reasoning_effort")
 
     try:
         if pause_seconds > 0:
@@ -2239,6 +2453,186 @@ def collect_one(
     return record
 
 
+def collect_local_batch(
+    *,
+    tasks: list[dict[str, Any]],
+    local_client: LocalTransformersClient | None,
+    system_prompt: str,
+    user_prefix: str,
+    omit_system_prompt: bool,
+    temperature: float | None,
+    max_tokens: int,
+    pause_seconds: float,
+    dry_run: bool,
+    store_request_messages: bool,
+    store_response_raw: bool,
+) -> list[dict[str, Any]]:
+    if not tasks:
+        return []
+
+    prompts: list[str] = []
+    records: list[dict[str, Any]] = []
+    started_at = utc_now_iso()
+    for task in tasks:
+        question = task["question"]
+        prompt_question = compose_user_question(question["question"], user_prefix)
+        request_messages: list[dict[str, str]] = []
+        if not omit_system_prompt and system_prompt.strip():
+            request_messages.append({"role": "system", "content": system_prompt})
+        request_messages.append({"role": "user", "content": prompt_question})
+
+        record = build_collect_record(
+            task=task,
+            question=question,
+            prompt_question=prompt_question,
+            request_messages=request_messages,
+            store_request_messages=store_request_messages,
+            started_at=started_at,
+        )
+        records.append(record)
+        prompts.append(build_local_prompt(request_messages))
+
+    if pause_seconds > 0:
+        time.sleep(pause_seconds)
+
+    t0 = time.perf_counter()
+    if dry_run:
+        for record in records:
+            record["response_text"] = (
+                f"DRY RUN local_transformers response for question={record['question_id']} "
+                f"model={record['model']}"
+            )
+            record["response_id"] = "dry-run"
+            record["response_created"] = None
+            record["response_usage"] = {}
+            record["response_finish_reason"] = "stop"
+            record["response_latency_ms"] = int((time.perf_counter() - t0) * 1000)
+            record["finished_at_utc"] = utc_now_iso()
+            enrich_collect_record_metrics(record)
+        return records
+
+    try:
+        if local_client is None:
+            raise RuntimeError("local transformers client is not initialized")
+        generation_rows = local_client.generate_batch(
+            prompts=prompts,
+            batch_size=len(tasks),
+            temperature=temperature,
+            max_new_tokens=max_tokens,
+        )
+        elapsed_ms = int((time.perf_counter() - t0) * 1000)
+        for idx, record in enumerate(records):
+            payload = generation_rows[idx]
+            response_text = str(payload.get("text", "") or "")
+            if not response_text.strip():
+                response_text = EMPTY_MODEL_RESPONSE_PLACEHOLDER
+                record["warnings"].append("response_text_fallback=empty_placeholder")
+            record["response_text"] = response_text
+            record["response_id"] = f"local:{record.get('model_id', '')}"
+            record["response_created"] = None
+            record["response_usage"] = payload.get("usage", {})
+            record["response_finish_reason"] = "stop"
+            if store_response_raw:
+                record["response_raw"] = payload.get("raw")
+            record["response_latency_ms"] = elapsed_ms
+            record["finished_at_utc"] = utc_now_iso()
+            enrich_collect_record_metrics(record)
+    except Exception as exc:  # pylint: disable=broad-except
+        elapsed_ms = int((time.perf_counter() - t0) * 1000)
+        for record in records:
+            record["error"] = str(exc)
+            record["error_kind"] = "runtime_error"
+            record["response_latency_ms"] = elapsed_ms
+            record["finished_at_utc"] = utc_now_iso()
+            enrich_collect_record_metrics(record)
+
+    return records
+
+
+def run_collect_local_transformers(
+    *,
+    args: argparse.Namespace,
+    tasks_to_run: list[dict[str, Any]],
+    records: list[dict[str, Any]],
+    completed: int,
+    total: int,
+    partial_writer: JsonlAppender,
+    events_writer: JsonlAppender,
+) -> tuple[int, int, dict[str, int]]:
+    if args.local_batch_size < 1:
+        raise ValueError("--local-batch-size must be >= 1")
+    effective_max_tokens = args.max_tokens if args.max_tokens > 0 else 512
+
+    by_model_id: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for task in tasks_to_run:
+        by_model_id[str(task.get("model_id", task.get("model", "")))].append(task)
+
+    client_cache: dict[str, LocalTransformersClient] = {}
+    attempt_count = 0
+    task_attempts: dict[str, int] = {}
+    for model_id in sorted(by_model_id.keys()):
+        if not args.dry_run and model_id not in client_cache:
+            client_cache[model_id] = LocalTransformersClient(
+                model_id=model_id,
+                device=str(args.local_device),
+                trust_remote_code=bool(args.local_trust_remote_code),
+            )
+        local_client = client_cache.get(model_id)
+        model_tasks = by_model_id[model_id]
+
+        for start in range(0, len(model_tasks), args.local_batch_size):
+            batch_tasks = model_tasks[start : start + args.local_batch_size]
+            batch_records = collect_local_batch(
+                tasks=batch_tasks,
+                local_client=local_client,
+                system_prompt=args.response_system_prompt,
+                user_prefix=args.response_user_prefix,
+                omit_system_prompt=bool(args.omit_response_system_prompt)
+                or not str(args.response_system_prompt).strip(),
+                temperature=args.temperature,
+                max_tokens=effective_max_tokens,
+                pause_seconds=args.pause_seconds,
+                dry_run=bool(args.dry_run),
+                store_request_messages=bool(args.store_request_messages),
+                store_response_raw=bool(args.store_response_raw),
+            )
+
+            for task, record in zip(batch_tasks, batch_records):
+                sample_id = sample_id_from_row(task, context="Collect task list")
+                task_attempts[sample_id] = 1
+                attempt_count += 1
+                completed += 1
+                record["collect_attempt"] = 1
+                record["status"] = "error" if record.get("error") else "ok"
+                records.append(record)
+                partial_writer.append(record)
+                events_writer.append(
+                    {
+                        "timestamp_utc": utc_now_iso(),
+                        "phase": "collect",
+                        "event": "task_complete",
+                        "status": record["status"],
+                        "sample_id": record.get("sample_id"),
+                        "model": record.get("model"),
+                        "question_id": record.get("question_id"),
+                        "run_index": record.get("run_index"),
+                        "attempt": 1,
+                        "error": record.get("error", ""),
+                    }
+                )
+                error_suffix = (
+                    f" error={record.get('error')}" if record["status"] == "error" else ""
+                )
+                print(
+                    f"[collect {completed}/{total}] {record['status']} "
+                    f"model={record['model']} question={record['question_id']} "
+                    f"run={record['run_index']} attempt=1{error_suffix}",
+                    flush=True,
+                )
+
+    return completed, attempt_count, task_attempts
+
+
 def run_collect(args: argparse.Namespace) -> int:
     config = load_config(args.config)
     collect_config = config.get("collect", {}) if isinstance(config, dict) else {}
@@ -2268,6 +2662,13 @@ def run_collect(args: argparse.Namespace) -> int:
     if args.empty_response_retries < 0:
         raise ValueError("--empty-response-retries must be >= 0")
     validate_retry_and_timeout(args.retries, args.timeout_seconds)
+    provider = str(args.provider).strip().lower()
+    if provider not in COLLECT_PROVIDER_CHOICES:
+        raise ValueError(
+            f"--provider must be one of: {', '.join(COLLECT_PROVIDER_CHOICES)}"
+        )
+    if provider == COLLECT_PROVIDER_LOCAL_TRANSFORMERS and args.local_batch_size < 1:
+        raise ValueError("--local-batch-size must be >= 1")
 
     models = load_models(args.models, args.models_file)
     base_reasoning_effort = normalize_reasoning_effort(
@@ -2362,6 +2763,10 @@ def run_collect(args: argparse.Namespace) -> int:
         "questions_path": str(pathlib.Path(args.questions).resolve()),
         "question_count": len(questions),
         "models": models,
+        "provider": provider,
+        "local_batch_size": args.local_batch_size,
+        "local_device": args.local_device,
+        "local_trust_remote_code": bool(args.local_trust_remote_code),
         "model_variants": model_variants,
         "num_runs": args.num_runs,
         "task_count": len(tasks),
@@ -2402,7 +2807,7 @@ def run_collect(args: argparse.Namespace) -> int:
     elif not collect_events_path.exists():
         collect_events_path.write_text("", encoding="utf-8")
     client: OpenRouterClient | None = None
-    if not args.dry_run:
+    if provider == COLLECT_PROVIDER_OPENROUTER and not args.dry_run:
         api_key = os.getenv("OPENROUTER_API_KEY", "").strip()
         if not api_key:
             raise RuntimeError("OPENROUTER_API_KEY is required unless --dry-run is set.")
@@ -2432,6 +2837,21 @@ def run_collect(args: argparse.Namespace) -> int:
                 "remaining_rows": len(tasks_to_run),
             }
         )
+
+        if tasks_to_run and provider == COLLECT_PROVIDER_LOCAL_TRANSFORMERS:
+            completed, local_attempt_count, local_task_attempts = run_collect_local_transformers(
+                args=args,
+                tasks_to_run=tasks_to_run,
+                records=records,
+                completed=completed,
+                total=total,
+                partial_writer=partial_writer,
+                events_writer=events_writer,
+            )
+            attempt_count += local_attempt_count
+            for sample_id, attempts in local_task_attempts.items():
+                task_attempts[sample_id] = max(task_attempts.get(sample_id, 0), attempts)
+            tasks_to_run = []
 
         if tasks_to_run:
             pending_by_model: dict[str, deque[dict[str, Any]]] = defaultdict(deque)
