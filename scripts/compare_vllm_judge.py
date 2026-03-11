@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-"""Compare a vLLM-hosted judge (Qwen3-Next-80B) against the existing 3-judge panel.
+"""Compare a candidate judge against the existing 3-judge panel.
 
-Loads aggregate JSONL files that already contain judge_1/2/3 scores, runs the vLLM
-model as a 4th judge using the same no-hint prompts, and computes pairwise agreement
-rates and Krippendorff's alpha.
+Loads aggregate JSONL files that already contain judge_1/2/3 scores, runs a
+candidate model as a 4th judge using the same no-hint prompts, and computes
+pairwise agreement rates and Krippendorff's alpha.
+
+Supports both local vLLM servers and OpenRouter as backends.
 """
 
 from __future__ import annotations
@@ -11,6 +13,8 @@ from __future__ import annotations
 import argparse
 import glob
 import json
+import os
+import random
 import sys
 import time
 from collections import defaultdict
@@ -34,28 +38,33 @@ from openrouter_benchmark import (
 
 DEFAULT_VLLM_URL = "http://smeagols-lair:19000/v1/chat/completions"
 DEFAULT_VLLM_MODEL = "qwen3-next-80b-instruct-fp8"
+OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 MAX_WORKERS = 16
 MAX_RETRIES = 3
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
-# ── vLLM API ─────────────────────────────────────────────────────────────────
+# ── API callers ──────────────────────────────────────────────────────────────
+
+
+def _build_messages(question: str, response_text: str) -> list[dict]:
+    user_content = DEFAULT_JUDGE_USER_TEMPLATE_NO_HINT.format(
+        question=question,
+        response=response_text,
+    )
+    return [
+        {"role": "system", "content": DEFAULT_JUDGE_SYSTEM_PROMPT_NO_HINT},
+        {"role": "user", "content": user_content},
+    ]
 
 
 def call_vllm_judge(
     question: str, response_text: str, *, url: str, model: str
 ) -> tuple[int, str]:
-    """Send a judge request to the vLLM server. Returns (score, justification)."""
-    user_content = DEFAULT_JUDGE_USER_TEMPLATE_NO_HINT.format(
-        question=question,
-        response=response_text,
-    )
+    """Send a judge request to a vLLM server. Returns (score, justification)."""
     payload = {
         "model": model,
-        "messages": [
-            {"role": "system", "content": DEFAULT_JUDGE_SYSTEM_PROMPT_NO_HINT},
-            {"role": "user", "content": user_content},
-        ],
+        "messages": _build_messages(question, response_text),
         "temperature": 0.0,
         "max_tokens": 512,
         "response_format": {"type": "json_object"},
@@ -80,6 +89,41 @@ def call_vllm_judge(
             if attempt < MAX_RETRIES - 1:
                 time.sleep(2 ** attempt)
     raise RuntimeError(f"vLLM judge failed after {MAX_RETRIES} attempts: {last_err}")
+
+
+def call_openrouter_judge(
+    question: str, response_text: str, *, model: str, api_key: str,
+    reasoning_effort: str = "off",
+) -> tuple[int, str]:
+    """Send a judge request to OpenRouter. Returns (score, justification)."""
+    payload: dict = {
+        "model": model,
+        "messages": _build_messages(question, response_text),
+        "temperature": 0.0,
+        "max_tokens": 4096,
+    }
+    if reasoning_effort != "off":
+        payload["reasoning"] = {"effort": reasoning_effort}
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+        "X-Title": "bullshit-benchmark",
+    }
+    last_err: Exception | None = None
+    for attempt in range(MAX_RETRIES):
+        try:
+            resp = requests.post(OPENROUTER_URL, json=payload, headers=headers, timeout=120)
+            resp.raise_for_status()
+            text = resp.json()["choices"][0]["message"]["content"]
+            if text is None:
+                raise ValueError("Model returned null content")
+            score, justification, _ = parse_judge_output(text)
+            return score, justification
+        except Exception as exc:
+            last_err = exc
+            if attempt < MAX_RETRIES - 1:
+                time.sleep(2 ** attempt)
+    raise RuntimeError(f"OpenRouter judge failed after {MAX_RETRIES} attempts: {last_err}")
 
 
 # ── Data loading ─────────────────────────────────────────────────────────────
@@ -144,16 +188,23 @@ def make_row_key(row: dict) -> str:
     return f"{source}::{row['sample_id']}"
 
 
-def judge_row(row: dict, *, url: str, model: str) -> dict:
-    """Run the vLLM judge on one row. Returns checkpoint entry."""
+def judge_row(
+    row: dict, *, url: str | None, model: str,
+    api_key: str | None = None, reasoning_effort: str = "off",
+) -> dict:
+    """Run the candidate judge on one row. Returns checkpoint entry."""
     key = make_row_key(row)
-    # Use prompt_question if available (thirdparty wraps question in a framing),
-    # otherwise use question directly.
     question = row.get("prompt_question") or row["question"]
     try:
-        score, justification = call_vllm_judge(
-            question, row["response_text"], url=url, model=model
-        )
+        if api_key:
+            score, justification = call_openrouter_judge(
+                question, row["response_text"], model=model, api_key=api_key,
+                reasoning_effort=reasoning_effort,
+            )
+        else:
+            score, justification = call_vllm_judge(
+                question, row["response_text"], url=url, model=model
+            )
         return {
             "sample_id": key,
             "vllm_score": score,
@@ -171,9 +222,10 @@ def judge_row(row: dict, *, url: str, model: str) -> dict:
 
 def run_judging(
     rows: list[dict], checkpoint_path: Path, label: str,
-    workers: int = MAX_WORKERS, *, url: str, model: str,
+    workers: int = MAX_WORKERS, *, url: str | None, model: str,
+    api_key: str | None = None, reasoning_effort: str = "off",
 ) -> dict[str, dict]:
-    """Run vLLM judge on all rows with checkpointing. Returns results dict."""
+    """Run candidate judge on all rows with checkpointing. Returns results dict."""
     existing = load_checkpoint(checkpoint_path)
     to_judge = []
     for row in rows:
@@ -191,7 +243,8 @@ def run_judging(
     errors = 0
     with ThreadPoolExecutor(max_workers=workers) as pool:
         futures = {
-            pool.submit(judge_row, row, url=url, model=model): row
+            pool.submit(judge_row, row, url=url, model=model, api_key=api_key,
+                        reasoning_effort=reasoning_effort): row
             for row in to_judge
         }
         for future in as_completed(futures):
@@ -219,6 +272,8 @@ def compute_agreement(
     judge_names = ["judge_1", "judge_2", "judge_3", "vllm"]
 
     # Build score matrix: list of (j1, j2, j3, vllm) per row
+    # Keep valid_rows in sync with score_rows so we can cross-reference
+    valid_rows: list[dict] = []
     score_rows: list[list[int | None]] = []
     valid_count = 0
     error_count = 0
@@ -236,6 +291,7 @@ def compute_agreement(
             scores.append(s if isinstance(s, int) else None)
         scores.append(entry["vllm_score"])
         score_rows.append(scores)
+        valid_rows.append(row)
         valid_count += 1
 
     print(f"\n{'=' * 60}")
@@ -310,7 +366,7 @@ def compute_agreement(
         print(f"    v={vs:>2}  ", end="")
         for cs in all_scores:
             count = 0
-            for row, sr in zip(rows, score_rows):
+            for row, sr in zip(valid_rows, score_rows):
                 if sr[3] == vs:
                     cons = row.get("consensus_score")
                     if cons == cs:
@@ -349,7 +405,7 @@ def compute_agreement(
     for is_ctrl in [False, True]:
         ctrl_label = "control" if is_ctrl else "non-control"
         ctrl_rows = [
-            (row, sr) for row, sr in zip(rows, score_rows)
+            (row, sr) for row, sr in zip(valid_rows, score_rows)
             if row.get("is_control") == is_ctrl
         ]
         if not ctrl_rows:
@@ -375,22 +431,36 @@ def compute_agreement(
 # ── Main ─────────────────────────────────────────────────────────────────────
 
 
+def sample_rows(rows: list[dict], n: int, seed: int = 42) -> list[dict]:
+    """Deterministically sample n rows (preserving reproducibility)."""
+    if n >= len(rows):
+        return rows
+    rng = random.Random(seed)
+    return rng.sample(rows, n)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Compare vLLM judge against existing 3-judge panel"
+        description="Compare a candidate judge against the existing 3-judge panel"
     )
     parser.add_argument("--url", default=None,
                         help="vLLM base URL (e.g. http://host:port)")
     parser.add_argument("--model", default=None,
                         help="Model name (auto-detected from server if omitted)")
+    parser.add_argument("--openrouter", action="store_true",
+                        help="Use OpenRouter API (requires OPENROUTER_API_KEY env var)")
     parser.add_argument("--vanilla", action="store_true",
                         help="Run on vanilla baseline data")
     parser.add_argument("--thirdparty", action="store_true",
                         help="Run on third-party formulation data")
+    parser.add_argument("--sample", type=int, default=None,
+                        help="Randomly sample N rows per dataset (deterministic seed)")
     parser.add_argument("--checkpoint-dir", type=Path, default=None,
-                        help="Directory for checkpoint files (default: data/vllm_judge_<model>/)")
+                        help="Directory for checkpoint files (default: data/judge_<model>/)")
     parser.add_argument("--workers", type=int, default=MAX_WORKERS,
                         help="Number of parallel workers")
+    parser.add_argument("--reasoning-effort", default="off",
+                        help="Reasoning effort level (off, low, medium, high). Default: off")
     parser.add_argument("--analysis-only", action="store_true",
                         help="Skip judging, just run analysis on existing checkpoints")
     args = parser.parse_args()
@@ -398,48 +468,70 @@ def main() -> None:
     if not args.vanilla and not args.thirdparty:
         parser.error("Specify at least one of --vanilla or --thirdparty")
 
-    # Resolve URL and model
-    base_url = (args.url or DEFAULT_VLLM_URL.rsplit("/v1/", 1)[0]).rstrip("/")
-    api_url = f"{base_url}/v1/chat/completions"
+    api_key: str | None = None
+    api_url: str | None = None
 
-    if args.model:
+    if args.openrouter:
+        api_key = os.getenv("OPENROUTER_API_KEY", "").strip()
+        if not api_key:
+            parser.error("OPENROUTER_API_KEY env var is required with --openrouter")
+        if not args.model:
+            parser.error("--model is required with --openrouter")
         model = args.model
     else:
-        # Auto-detect from /v1/models
-        resp = requests.get(f"{base_url}/v1/models", timeout=10)
-        resp.raise_for_status()
-        model = resp.json()["data"][0]["id"]
-        print(f"Auto-detected model: {model}")
+        # vLLM mode
+        base_url = (args.url or DEFAULT_VLLM_URL.rsplit("/v1/", 1)[0]).rstrip("/")
+        api_url = f"{base_url}/v1/chat/completions"
+        if args.model:
+            model = args.model
+        else:
+            resp = requests.get(f"{base_url}/v1/models", timeout=10)
+            resp.raise_for_status()
+            model = resp.json()["data"][0]["id"]
+            print(f"Auto-detected model: {model}")
 
     # Sanitize model name for directory
     model_slug = model.replace("/", "_").replace(" ", "_")
-    checkpoint_dir = args.checkpoint_dir or (REPO_ROOT / "data" / f"vllm_judge_{model_slug}")
+    checkpoint_dir = args.checkpoint_dir or (REPO_ROOT / "data" / f"judge_{model_slug}")
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
     workers = args.workers
 
+    backend = "openrouter" if args.openrouter else "vllm"
     print(f"Model: {model}")
-    print(f"URL: {api_url}")
+    print(f"Backend: {backend}")
+    if api_url:
+        print(f"URL: {api_url}")
     print(f"Checkpoints: {checkpoint_dir}")
+    if args.sample:
+        print(f"Sample size: {args.sample}")
 
     if args.vanilla:
         rows = load_vanilla_rows()
+        if args.sample:
+            rows = sample_rows(rows, args.sample)
         ckpt = checkpoint_dir / "vanilla.jsonl"
         if args.analysis_only:
             results = load_checkpoint(ckpt)
         else:
             results = run_judging(
-                rows, ckpt, "vanilla", workers=workers, url=api_url, model=model
+                rows, ckpt, "vanilla", workers=workers,
+                url=api_url, model=model, api_key=api_key,
+                reasoning_effort=args.reasoning_effort,
             )
         compute_agreement(rows, results, "Vanilla Baseline", vllm_model=model)
 
     if args.thirdparty:
         rows = load_thirdparty_rows()
+        if args.sample:
+            rows = sample_rows(rows, args.sample)
         ckpt = checkpoint_dir / "thirdparty.jsonl"
         if args.analysis_only:
             results = load_checkpoint(ckpt)
         else:
             results = run_judging(
-                rows, ckpt, "thirdparty", workers=workers, url=api_url, model=model
+                rows, ckpt, "thirdparty", workers=workers,
+                url=api_url, model=model, api_key=api_key,
+                reasoning_effort=args.reasoning_effort,
             )
         compute_agreement(rows, results, "Third-Party Formulations", vllm_model=model)
 
