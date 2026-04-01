@@ -270,6 +270,7 @@
       <p class="subtle" style="max-width:900px;line-height:1.55;">In the standard BullshitBench v2 benchmark, each nonsense question is sent directly to the model as the user message. In this experiment, the same 100 questions are re-run with a single line prepended:</p>
       <p style="margin:10px 0;padding:8px 12px;border-left:3px solid var(--teal);background:#f2faf7;font-size:0.88rem;color:#1d3d36;border-radius:0 8px 8px 0;"><em>"A third party asked the following question."</em></p>
       <p class="subtle" style="max-width:900px;line-height:1.55;">This reframes the model's role from answering its own user to evaluating someone else's question. The hypothesis is that models are more willing to push back on nonsense when the question is attributed to an external party, since they are no longer at risk of directly contradicting or offending their user. Each model below is shown twice: <strong>3P</strong> (third-party framing) and <strong>BL</strong> (baseline, identical to the published v2 result).</p>
+      <p class="subtle" style="max-width:900px;line-height:1.55;margin-top:10px;">Results are separated by <strong>judge panel</strong>. Compare third-party deltas within a section, not across sections, because the gold 3-judge panel and the Step 3.5 Flash + Nemotron 120B panel have different calibration.</p>
     </section>
 
     <section class="panel">
@@ -327,8 +328,8 @@
     <section class="panel">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:20px;">
         <div>
-          <h2 style="margin:0;">Detection Rate by Model</h2>
-          <p class="subtle" style="margin-top:2px;">Baseline and 3rd-Party formulations are listed as separate rows, grouped together by model for direct visual comparison.</p>
+          <h2 style="margin:0;">Detection Rate by Model: Gold 3-Judge Panel</h2>
+          <p class="subtle" style="margin-top:2px;">Claude Sonnet 4.6 + GPT-5.2 + Gemini 3.1 Pro Preview. Baseline and 3rd-Party formulations are listed as separate rows, grouped together by model for direct visual comparison.</p>
         </div>
         <div style="display:grid;gap:6px;justify-items:end;">
           <div style="display:flex;gap:6px;flex-wrap:wrap;">
@@ -342,131 +343,174 @@
           </div>
         </div>
       </div>
-      <div id="simpleModelBars" style="display:grid;gap:12px;"></div>
+      <div id="goldModelBars" style="display:grid;gap:12px;"></div>
+    </section>
+
+    <section class="panel">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:20px;">
+        <div>
+          <h2 style="margin:0;">Detection Rate by Model: Step 3.5 Flash + Nemotron 120B</h2>
+          <p class="subtle" style="margin-top:2px;">Step 3.5 Flash + Nemotron 120B. Baseline and 3rd-Party formulations are listed as separate rows, grouped together by model for direct visual comparison.</p>
+        </div>
+        <div style="display:grid;gap:6px;justify-items:end;">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <span class="score-chip"><span class="dot score2"></span>Clear Pushback</span>
+            <span class="score-chip"><span class="dot score1"></span>Partial Challenge</span>
+            <span class="score-chip"><span class="dot score0"></span>Accepted Nonsense</span>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center;font-size:0.78rem;color:#4a5f58;">
+            <span style="display:inline-flex;align-items:center;gap:5px;"><span class="source-tag tp">3P</span> Third-party framing</span>
+            <span style="display:inline-flex;align-items:center;gap:5px;"><span class="source-tag bl">BL</span> Baseline</span>
+          </div>
+        </div>
+      </div>
+      <div id="cheap2JudgeModelBars" style="display:grid;gap:12px;"></div>
     </section>
   </main>
 
   <script>
-    const modelRows = [
+    const judgePanels = [
       {
-        label: "GPT-5.2 Chat",
-        modelRow: "openai/gpt-5.2-chat@reasoning=default",
-        baseline: { avg: 0.83, green: 0.27, amber: 0.33, red: 0.40, error: 0 },
-        thirdParty: {
-          status: "graded_complete",
-          avg: 0.9567,
-          green: 0.37,
-          amber: 0.25,
-          red: 0.38,
-          error: 0,
-          scoredCount: 100,
-          runId: "run_v2_gpt52chat_thirdparty_20260303",
-          rowCount: 100,
-          rowErrorCount: 0,
-          cost: 1.1013835,
-          avgTokens: 840.55,
-          avgLatencyMs: 17355.43
-        }
+        id: "gold",
+        rows: [
+          {
+            label: "GPT-5.2 Chat",
+            modelRow: "openai/gpt-5.2-chat@reasoning=default",
+            baseline: { avg: 0.83, green: 0.27, amber: 0.33, red: 0.40, error: 0 },
+            thirdParty: {
+              status: "graded_complete",
+              avg: 0.9567,
+              green: 0.37,
+              amber: 0.25,
+              red: 0.38,
+              error: 0,
+              runId: "run_v2_gpt52chat_thirdparty_20260303"
+            }
+          },
+          {
+            label: "GPT-5.2 Codex (Low)",
+            modelRow: "openai/gpt-5.2-codex@reasoning=low",
+            baseline: { avg: 1.1367, green: 0.45, amber: 0.26, red: 0.29, error: 0 },
+            thirdParty: {
+              status: "graded_complete",
+              avg: 1.2867,
+              green: 0.56,
+              amber: 0.20,
+              red: 0.24,
+              error: 0,
+              runId: "run_v2_gpt52codex_low_thirdparty_20260303"
+            }
+          },
+          {
+            label: "Claude Sonnet 4.5",
+            modelRow: "anthropic/claude-sonnet-4.5@reasoning=none",
+            baseline: { avg: 1.59, green: 0.74, amber: 0.13, red: 0.13, error: 0 },
+            thirdParty: {
+              status: "graded_complete",
+              avg: 1.7633,
+              green: 0.83,
+              amber: 0.10,
+              red: 0.07,
+              error: 0,
+              runId: "run_v2_claude45_none_thirdparty_20260303"
+            }
+          },
+          {
+            label: "GPT-5.3 Chat",
+            modelRow: "openai/gpt-5.3-chat@reasoning=default",
+            baseline: { avg: 1.06, green: 0.40, amber: 0.29, red: 0.31, error: 0 },
+            thirdParty: {
+              status: "graded_complete",
+              avg: 1.24,
+              green: 0.48,
+              amber: 0.31,
+              red: 0.21,
+              error: 0,
+              runId: "run_v2_gpt53chat_thirdparty_20260304"
+            }
+          },
+          {
+            label: "Gemini 3.1 Pro Preview (Low)",
+            modelRow: "google/gemini-3.1-pro-preview@reasoning=low",
+            baseline: { avg: 1.0467, green: 0.37, amber: 0.32, red: 0.31, error: 0 },
+            thirdParty: {
+              status: "graded_complete",
+              avg: 1.1867,
+              green: 0.48,
+              amber: 0.25,
+              red: 0.27,
+              error: 0,
+              runId: "run_v2_gemini31pro_low_thirdparty_20260304_b"
+            }
+          },
+          {
+            label: "GPT-5.2",
+            modelRow: "openai/gpt-5.2@reasoning=none",
+            baseline: { avg: 1.10, green: 0.38, amber: 0.39, red: 0.23, error: 0 },
+            thirdParty: {
+              status: "graded_complete",
+              avg: 1.1983,
+              green: 0.45,
+              amber: 0.38,
+              red: 0.17,
+              error: 0,
+              runId: "run_v2_gpt52_thirdparty_n3_20260303"
+            }
+          }
+        ]
       },
       {
-        label: "GPT-5.2 Codex (Low)",
-        modelRow: "openai/gpt-5.2-codex@reasoning=low",
-        baseline: { avg: 1.1367, green: 0.45, amber: 0.26, red: 0.29, error: 0 },
-        thirdParty: {
-          status: "graded_complete",
-          avg: 1.2867,
-          green: 0.56,
-          amber: 0.20,
-          red: 0.24,
-          error: 0,
-          scoredCount: 100,
-          runId: "run_v2_gpt52codex_low_thirdparty_20260303",
-          rowCount: 100,
-          rowErrorCount: 0,
-          cost: 0.4245395,
-          avgTokens: 357.09,
-          avgLatencyMs: 5241.43
-        }
-      },
-      {
-        label: "Claude Sonnet 4.5",
-        modelRow: "anthropic/claude-sonnet-4.5@reasoning=none",
-        baseline: { avg: 1.59, green: 0.74, amber: 0.13, red: 0.13, error: 0 },
-        thirdParty: {
-          status: "graded_complete",
-          avg: 1.7633,
-          green: 0.83,
-          amber: 0.10,
-          red: 0.07,
-          error: 0,
-          scoredCount: 100,
-          runId: "run_v2_claude45_none_thirdparty_20260303",
-          rowCount: 100,
-          rowErrorCount: 0,
-          cost: 0.530811,
-          avgTokens: 409.85,
-          avgLatencyMs: 10445.87
-        }
-      },
-      {
-        label: "GPT-5.3 Chat",
-        modelRow: "openai/gpt-5.3-chat@reasoning=default",
-        baseline: { avg: 1.06, green: 0.40, amber: 0.29, red: 0.31, error: 0 },
-        thirdParty: {
-          status: "graded_complete",
-          avg: 1.24,
-          green: 0.48,
-          amber: 0.31,
-          red: 0.21,
-          error: 0,
-          scoredCount: 100,
-          runId: "run_v2_gpt53chat_thirdparty_20260304",
-          rowCount: 100,
-          rowErrorCount: 1,
-          cost: 0.6649055,
-          avgTokens: 528.78,
-          avgLatencyMs: 6688.8
-        }
-      },
-      {
-        label: "Gemini 3.1 Pro Preview (Low)",
-        modelRow: "google/gemini-3.1-pro-preview@reasoning=low",
-        baseline: { avg: 1.0467, green: 0.37, amber: 0.32, red: 0.31, error: 0 },
-        thirdParty: {
-          status: "graded_complete",
-          avg: 1.1867,
-          green: 0.48,
-          amber: 0.25,
-          red: 0.27,
-          error: 0,
-          scoredCount: 100,
-          runId: "run_v2_gemini31pro_low_thirdparty_20260304_b",
-          rowCount: 100,
-          rowErrorCount: 0,
-          cost: 1.593722,
-          avgTokens: 1377.31,
-          avgLatencyMs: 18753.26
-        }
-      },
-      {
-        label: "GPT-5.2",
-        modelRow: "openai/gpt-5.2@reasoning=none",
-        baseline: { avg: 1.10, green: 0.38, amber: 0.39, red: 0.23, error: 0 },
-        thirdParty: {
-          status: "graded_complete",
-          avg: 1.1983,
-          green: 0.45,
-          amber: 0.38,
-          red: 0.17,
-          error: 0,
-          scoredCount: 100,
-          runId: "run_v2_gpt52_thirdparty_n3_20260303",
-          rowCount: 100,
-          rowErrorCount: 47,
-          cost: 1.234268,
-          avgTokens: 935.66,
-          avgLatencyMs: 18317.47
-        }
+        id: "cheap_2judge",
+        rows: [
+          {
+            label: "OLMo 3 7B",
+            modelRow: "allenai/OLMo-3-7B-Instruct@reasoning=default",
+            baseline: { avg: 0.59, green: 0.11, amber: 0.37, red: 0.52, error: 0 },
+            thirdParty: { status: "graded_complete", avg: 0.59, green: 0.09, amber: 0.41, red: 0.50, error: 0, runId: "run_v2_olmo3_7b_thirdparty" }
+          },
+          {
+            label: "Gemini 2.5 FL",
+            modelRow: "google/gemini-2.5-flash-lite@reasoning=default",
+            baseline: { avg: 0.78, green: 0.23, amber: 0.32, red: 0.45, error: 0 },
+            thirdParty: { status: "graded_complete", avg: 0.82, green: 0.21, amber: 0.40, red: 0.39, error: 0, runId: "run_v2_gemini25flashlite_thirdparty" }
+          },
+          {
+            label: "GPT-5.2 Chat",
+            modelRow: "openai/gpt-5.2-chat@reasoning=default",
+            baseline: { avg: 1.16, green: 0.45, amber: 0.26, red: 0.29, error: 0 },
+            thirdParty: { status: "graded_complete", avg: 1.3232, green: 0.5152, amber: 0.2929, red: 0.1919, error: 0, runId: "run_v2_gpt52chat_thirdparty" }
+          },
+          {
+            label: "GPT-5.2 Codex (Low)",
+            modelRow: "openai/gpt-5.2-codex@reasoning=low",
+            baseline: { avg: 1.44, green: 0.59, amber: 0.26, red: 0.15, error: 0 },
+            thirdParty: { status: "graded_complete", avg: 1.56, green: 0.68, amber: 0.20, red: 0.12, error: 0, runId: "run_v2_gpt52codex_low_thirdparty" }
+          },
+          {
+            label: "GPT-OSS 120B (High)",
+            modelRow: "openai/gpt-oss-120b@reasoning=high",
+            baseline: { avg: 0.95, green: 0.33, amber: 0.29, red: 0.38, error: 0 },
+            thirdParty: { status: "graded_complete", avg: 1.0909, green: 0.404, amber: 0.2828, red: 0.3131, error: 0, runId: "run_v2_gptoss120b_high_thirdparty" }
+          },
+          {
+            label: "GPT-OSS 20B",
+            modelRow: "openai/gpt-oss-20b@reasoning=default",
+            baseline: { avg: 0.83, green: 0.22, amber: 0.39, red: 0.39, error: 0 },
+            thirdParty: { status: "graded_complete", avg: 0.92, green: 0.26, amber: 0.40, red: 0.34, error: 0, runId: "run_v2_gptoss20b_thirdparty" }
+          },
+          {
+            label: "Gemini 3.1 Pro Preview (Low)",
+            modelRow: "google/gemini-3.1-pro-preview@reasoning=low",
+            baseline: { avg: 1.39, green: 0.60, amber: 0.19, red: 0.21, error: 0 },
+            thirdParty: { status: "graded_complete", avg: 1.44, green: 0.59, amber: 0.26, red: 0.15, error: 0, runId: "run_v2_gemini31pro_low_thirdparty" }
+          },
+          {
+            label: "Claude Sonnet 4.5",
+            modelRow: "anthropic/claude-sonnet-4.5@reasoning=none",
+            baseline: { avg: 1.70, green: 0.79, amber: 0.12, red: 0.09, error: 0 },
+            thirdParty: { status: "graded_complete", avg: 1.82, green: 0.88, amber: 0.06, red: 0.06, error: 0, runId: "run_v2_claude45_none_thirdparty" }
+          }
+        ]
       }
     ];
 
@@ -492,7 +536,8 @@
       modelToggleGrid: document.getElementById("modelToggleGrid"),
       clearFiltersBtn: document.getElementById("clearFiltersBtn"),
       dataState: document.getElementById("dataState"),
-      simpleModelBars: document.getElementById("simpleModelBars")
+      goldModelBars: document.getElementById("goldModelBars"),
+      cheap2JudgeModelBars: document.getElementById("cheap2JudgeModelBars")
     };
 
     const state = {
@@ -572,50 +617,54 @@
 
     function buildRows() {
       const rows = [];
-      for (const item of modelRows) {
-        const baseline = normalizeStats(item.baseline);
-        const thirdParty = normalizeStats(item.thirdParty);
-        const thirdStatus = String(item.thirdParty.status || "graded_complete");
-        const thirdRowCount = Number(item.thirdParty.rowCount || 0);
-        const thirdScoredCount = Number(item.thirdParty.scoredCount || 0);
-        if (thirdStatus === "graded_partial" && thirdRowCount > 0) {
-          thirdParty.error = 1 - (thirdScoredCount / thirdRowCount);
-        }
+      for (const panel of judgePanels) {
+        for (const item of panel.rows) {
+          const baseline = normalizeStats(item.baseline);
+          const thirdParty = normalizeStats(item.thirdParty);
+          const thirdStatus = String(item.thirdParty.status || "graded_complete");
+          const thirdRowCount = Number(item.thirdParty.rowCount || 0);
+          const thirdScoredCount = Number(item.thirdParty.scoredCount || 0);
+          if (thirdStatus === "graded_partial" && thirdRowCount > 0) {
+            thirdParty.error = 1 - (thirdScoredCount / thirdRowCount);
+          }
 
-        const org = parseOrg(item.modelRow);
-        const reasoning = parseReasoning(item.modelRow);
-        rows.push({
-          id: `${item.modelRow}__baseline`,
-          modelKey: item.modelRow,
-          baseLabel: item.label,
-          label: item.label,
-          source: "baseline",
-          sourceLabel: "Baseline",
-          modelRow: item.modelRow,
-          runId: "published-v2-baseline",
-          org,
-          reasoning,
-          technique: "all",
-          domain: "all",
-          stats: baseline,
-          dominant: dominantOutcome(baseline)
-        });
-        rows.push({
-          id: `${item.modelRow}__third_party`,
-          modelKey: item.modelRow,
-          baseLabel: item.label,
-          label: item.label,
-          source: "third_party",
-          sourceLabel: "3rd Party",
-          modelRow: item.modelRow,
-          runId: item.thirdParty.runId,
-          org,
-          reasoning,
-          technique: "all",
-          domain: "all",
-          stats: thirdParty,
-          dominant: dominantOutcome(thirdParty)
-        });
+          const org = parseOrg(item.modelRow);
+          const reasoning = parseReasoning(item.modelRow);
+          rows.push({
+            id: `${panel.id}__${item.modelRow}__baseline`,
+            judgePanelId: panel.id,
+            modelKey: item.modelRow,
+            baseLabel: item.label,
+            label: item.label,
+            source: "baseline",
+            sourceLabel: "Baseline",
+            modelRow: item.modelRow,
+            runId: panel.id === "gold" ? "published-v2-baseline" : `${item.modelRow}__baseline`,
+            org,
+            reasoning,
+            technique: "all",
+            domain: "all",
+            stats: baseline,
+            dominant: dominantOutcome(baseline)
+          });
+          rows.push({
+            id: `${panel.id}__${item.modelRow}__third_party`,
+            judgePanelId: panel.id,
+            modelKey: item.modelRow,
+            baseLabel: item.label,
+            label: item.label,
+            source: "third_party",
+            sourceLabel: "3rd Party",
+            modelRow: item.modelRow,
+            runId: item.thirdParty.runId,
+            org,
+            reasoning,
+            technique: "all",
+            domain: "all",
+            stats: thirdParty,
+            dominant: dominantOutcome(thirdParty)
+          });
+        }
       }
       return rows;
     }
@@ -735,9 +784,9 @@
       return bl ? Number(bl.stats.green || 0) : 0;
     }
 
-    function renderRows(rows) {
+    function renderRows(targetEl, rows) {
       if (!rows.length) {
-        el.simpleModelBars.innerHTML = `<p class="subtle">No model rows match the current filters.</p>`;
+        targetEl.innerHTML = `<p class="subtle">No model rows match the current filters.</p>`;
         return;
       }
 
@@ -764,7 +813,7 @@
         return bGreen - aGreen;
       });
 
-      el.simpleModelBars.innerHTML = modelOrder.map((modelKey) => {
+      targetEl.innerHTML = modelOrder.map((modelKey) => {
         const entry = modelMap.get(modelKey);
         const tp = entry.tp;
         const bl = entry.bl;
@@ -796,7 +845,14 @@
       const filtered = applyFilters(state.rows);
       el.dataState.textContent = `Showing ${filtered.length} of ${state.rows.length} model rows.`;
       renderModelToggleGrid();
-      renderRows(filtered);
+      renderRows(
+        el.goldModelBars,
+        filtered.filter((row) => row.judgePanelId === "gold")
+      );
+      renderRows(
+        el.cheap2JudgeModelBars,
+        filtered.filter((row) => row.judgePanelId === "cheap_2judge")
+      );
     }
 
     function resetFilters() {
